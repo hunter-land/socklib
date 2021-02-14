@@ -1,7 +1,6 @@
 extern "C" {
 	#ifndef _WIN32 //POSIX, for normal people
 		#include <sys/socket.h>
-		#include <netinet/in.h>
 	#else //Whatever-this-is, for windows people
 		#include <winsock2.h>
 	#endif
@@ -16,10 +15,6 @@ namespace sks {
 		unix = AF_UNIX,
 		ipv4 = AF_INET,
 		ipv6 = AF_INET6
-		
-		#ifdef AF_ALG
-		,alg = AF_ALG
-		#endif
 	};
 	enum protocol {
 		tcp = SOCK_STREAM,
@@ -55,8 +50,10 @@ namespace sks {
 	std::string errorstr(errortype e);
 	
 	struct sockaddress {
+		sockaddress();
+		
 		domain d;
-		unsigned long addr = 0;
+		uint8_t addr[16];
 		std::string addrstring = "";
 		unsigned short port = 0;
 	};
@@ -90,7 +87,7 @@ namespace sks {
 		//Create a new socket
 		socket_base(domain d, protocol t = protocol::tcp, int p = 0);
 		//Wrap an existing C socket file descriptor with this class
-		socket_base(int sockfd, sockaddr_in *addr, protocol t);
+		socket_base(int sockfd, sockaddr *saddr, protocol t);
 		//Move constructor
 		socket_base( socket_base&& s );
 		//Close and deconstruct socket

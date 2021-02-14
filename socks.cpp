@@ -12,6 +12,7 @@ extern "C" {
 	
 	#ifndef _WIN32
 		#include <netinet/in.h> //sockaddr_in
+		#include <sys/un.h> //sockaddr_un
 		#include <arpa/inet.h> //inet_pton
 		#include <unistd.h> //close
 		#include <sys/ioctl.h> //ioctl
@@ -85,6 +86,104 @@ namespace sks {
 		return "";
 	}
 	
+	sockaddress::sockaddress() {
+		memset(&addr, 0, sizeof(addr));
+	}
+	
+	//Converting sockaddress to sockaddr
+	sockaddr satosa(const sockaddress& s) {
+		sockaddr saddr;
+		
+		saddr.sa_family = s.d;
+		switch (s.d) {
+			case ipv4:
+				{
+					sockaddr_in* a = (sockaddr_in*)&saddr;
+					
+					bool addrzero = true;
+					for (size_t i = 0; i < sizeof(s.addr) && i < sizeof(a->sin_addr) && addrzero; i++) {
+						addrzero &= s.addr[i] == 0;
+					}
+					
+					if (addrzero) { //Get address from string
+						inet_pton( s.d, s.addrstring.c_str(), &a->sin_addr );
+					}
+					
+					memcpy(&a->sin_addr, s.addr, sizeof(a->sin_addr));
+					a->sin_port = ntohs( s.port );
+				}
+				break;
+			case ipv6:
+				{
+					sockaddr_in6* a = (sockaddr_in6*)&saddr;
+					
+					bool addrzero = true;
+					for (size_t i = 0; i < sizeof(s.addr) && i < sizeof(a->sin6_addr) && addrzero; i++) {
+						addrzero &= s.addr[i] == 0;
+					}
+					
+					if (addrzero) { //Get address from string
+						inet_pton( s.d, s.addrstring.c_str(), &a->sin6_addr );
+					}
+					
+					memcpy(&a->sin6_addr, s.addr, sizeof(a->sin6_addr));
+					a->sin6_port = ntohs( s.port );
+				}
+				break;
+			case unix:
+				{
+					sockaddr_un* a = (sockaddr_un*)&saddr;
+					
+					strncpy(a->sun_path, s.addrstring.c_str(), s.addrstring.size());
+				}
+				break;
+		}
+		
+		return saddr;
+	}
+	//Converting sockaddr to sockaddress
+	sockaddress satosa(const sockaddr* const saddr) {
+		sockaddress s;
+		
+		s.d = (domain)saddr->sa_family;
+		switch (s.d) {
+			case ipv4:
+				{
+					sockaddr_in* a = (sockaddr_in*)saddr;
+					
+					memcpy(s.addr, &a->sin_addr, sizeof(a->sin_addr));
+					s.port = ntohs( a->sin_port );
+				}
+				break;
+			case ipv6:
+				{
+					sockaddr_in6* a = (sockaddr_in6*)saddr;
+					
+					memcpy(s.addr, &a->sin6_addr, sizeof(a->sin6_addr));
+					s.port = ntohs( a->sin6_port );
+				}
+				break;
+			case unix:
+				{
+					sockaddr_un* a = (sockaddr_un*)saddr;
+					
+					s.addrstring = a->sun_path;
+					memset(&s.addr, 0, sizeof(s.addr));
+					s.port = 0;
+				}
+				break;
+		}
+		
+		size_t addrstrlen = std::max(INET6_ADDRSTRLEN, INET_ADDRSTRLEN);
+		char addrstr[addrstrlen];
+		const char* e = inet_ntop(s.d, &s.addr, addrstr, addrstrlen);
+		if (e != nullptr) {
+			s.addrstring = addrstr;
+		}
+		
+		return s;
+	}
+	
 	//Constructors and destructors
 	socket_base::socket_base(domain d, protocol t, int p) {
 		m_domain = d;
@@ -107,26 +206,11 @@ namespace sks {
 			setsockopt(m_sockid, SOL_SOCKET, SO_REUSEADDR, (char*)&tru, sizeof(tru));
 		#endif*/
 	}
-	socket_base::socket_base(int sockfd, sockaddr_in *addr, protocol t) {
+	socket_base::socket_base(int sockfd, sockaddr *saddr, protocol t) {
 		//std::cout << "Wrapping socket #" << sockfd << std::endl;
 		m_sockid = sockfd;
 		m_protocol = t;
-		switch (addr->sin_family) {
-			case unix:
-				m_domain = unix;
-				break;
-			case ipv4:
-				m_domain = ipv4;
-				break;
-			case ipv6:
-				m_domain = ipv6;
-				break;
-			#ifdef alg
-			case alg:
-				m_domain = alg;
-				break;
-			#endif
-		}
+		m_domain = (domain)saddr->sa_family;
 		
 		setlocinfo();
 		setreminfo();
@@ -294,19 +378,14 @@ namespace sks {
 		}
 	}
 	int socket_base::bind(std::string addr) {
-		sockaddr_in saddr;
+		sockaddress sa;
+		sa.d = m_domain;
+		sa.addrstring = addr;
+		sa.port = INADDR_ANY;
 		
-		saddr.sin_family = m_domain;
-		int e = inet_pton( m_domain, addr.c_str(), &saddr.sin_addr ); //1 == success
-		switch (e) {
-			case 0: //src does not contain a character string representing a valid network address in the specified address family.
-				return EINVAL;
-			case -1: //af is not a valid address family (Shouldn't happen here, but for future compatability it is added)
-				return errno;
-		}
-		saddr.sin_port = INADDR_ANY;
+		sockaddr saddr = satosa(sa);
 		
-		if (::bind(m_sockid, (sockaddr*)&saddr, sizeof(saddr)) == -1) {
+		if (::bind(m_sockid, &saddr, sizeof(saddr)) == -1) {
 			return errno;
 		} else {
 			setlocinfo();
@@ -317,19 +396,27 @@ namespace sks {
 		}
 	}
 	int socket_base::bind(std::string addr, unsigned short port) {
-		sockaddr_in saddr;
+		sockaddress sa;
+		sa.d = m_domain;
+		sa.addrstring = addr;
+		sa.port = port;
 		
-		saddr.sin_family = m_domain;
-		int e = inet_pton( m_domain, addr.c_str(), &saddr.sin_addr ); //1 == success
-		switch (e) {
-			case 0: //src does not contain a character string representing a valid network address in the specified address family.
-				return EINVAL;
-			case -1: //af is not a valid address family (Shouldn't happen here, but for future compatability it is added)
-				return errno;
+		sockaddr saddr = satosa(sa);
+		
+		if (::bind(m_sockid, &saddr, sizeof(saddr)) == -1) {
+			return errno;
+		} else {
+			setlocinfo();
+			if (m_protocol == udp) {
+				m_valid = true;
+			}
+			return 0;
 		}
-		saddr.sin_port = htons( port );
+	}
+	int socket_base::bind(sockaddress sa) {
+		sockaddr saddr = satosa(sa);
 		
-		if (::bind(m_sockid, (sockaddr*)&saddr, sizeof(saddr)) == -1) {
+		if (::bind(m_sockid, &saddr, sizeof(saddr)) == -1) {
 			return errno;
 		} else {
 			setlocinfo();
@@ -360,9 +447,9 @@ namespace sks {
 			msg += " is not a listener.";
 			throw std::runtime_error(msg);
 		}
-		sockaddr_in saddr;
+		sockaddr saddr;
 		socklen_t saddrlen = sizeof(saddr);
-		int newsockid = ::accept(m_sockid, (sockaddr*)&saddr, &saddrlen);
+		int newsockid = ::accept(m_sockid, &saddr, &saddrlen);
 		if (newsockid == -1) {
 			//For some reason, we failed to accept a connection
 			//We cannot fulfill return type
@@ -378,23 +465,10 @@ namespace sks {
 	}
 	
 	int socket_base::connect(sockaddress sa) {
-		sockaddr_in saddr;
+		sockaddr saddr = satosa(sa);
 		socklen_t slen = sizeof(saddr);
 		
-		saddr.sin_family = m_domain;
-		saddr.sin_addr.s_addr = sa.addr;
-		if (sa.addr == 0) {
-			int e = inet_pton( m_domain, sa.addrstring.c_str(), &saddr.sin_addr.s_addr);
-			switch (e) {
-			case 0: //src does not contain a character string representing a valid network address in the specified address family.
-				return EINVAL;
-			case -1: //af is not a valid address family (Shouldn't happen here, but for future compatability it is added)
-				return errno;
-			}
-		}
-		saddr.sin_port = htons(sa.port);
-		
-		if (::connect(m_sockid, (sockaddr*)&saddr, slen) == -1) {
+		if (::connect(m_sockid, &saddr, slen) == -1) {
 			return errno;
 		}
 		
@@ -419,16 +493,16 @@ namespace sks {
 			return e;
 		}
 		
-		sockaddr_in saddr;
+		sockaddr saddr;
 		socklen_t slen = sizeof(saddr);
 		pkt.data.resize(n);
 		//uint8_t buf[n]; //0x100
 		
 		//std::cout << "Reading up to " << n << " bytes ";
 		#ifndef _WIN32
-			ssize_t br = ::recvfrom(m_sockid, (void*)pkt.data.data(), n, flags, (sockaddr*)&saddr, &slen);
+			ssize_t br = ::recvfrom(m_sockid, (void*)pkt.data.data(), n, flags, &saddr, &slen);
 		#else
-			int br = ::recvfrom(m_sockid, (char*)pkt.data.data(), n, flags, (sockaddr*)&saddr, &slen);
+			int br = ::recvfrom(m_sockid, (char*)pkt.data.data(), n, flags, &saddr, &slen);
 		#endif
 		//std::cout << "(Read " << br << " bytes)" << std::endl;
 		if (br <= 0) {
@@ -449,16 +523,7 @@ namespace sks {
 		pkt.data.resize(br);
 		
 		//Fill out packet.rem
-		if (m_protocol == tcp) {
-			pkt.rem = m_rem_addr;
-		} else {
-			pkt.rem.d = (domain)saddr.sin_family;
-			pkt.rem.addr = saddr.sin_addr.s_addr;
-			char addrstr[0xFF];
-			inet_ntop(m_domain, &pkt.rem.addr, addrstr, 0xFF);
-			pkt.rem.addrstring = addrstr;
-			pkt.rem.port = ntohs( saddr.sin_port );
-		}
+		pkt.rem = satosa(&saddr);
 		
 		//Do post-recv function
 		if (m_postrecv != nullptr) {
@@ -498,30 +563,19 @@ namespace sks {
 				return e;
 			}
 		}
+				
+		if (m_protocol == tcp) {
+			pkt.rem = m_rem_addr;
+		}
+		
+		sockaddr saddr = satosa(pkt.rem);
+		socklen_t slen = sizeof(saddr);
 		
 		#ifndef _WIN32
-			ssize_t br;
-			void* dataptr = (void*)pkt.data.data();
+			ssize_t br = ::sendto(m_sockid, (void*)pkt.data.data(), pkt.data.size(), flags, &saddr, slen);
 		#else
-			int br;
-			char* dataptr = (char*)pkt.data.data();
+			int br = ::sendto(m_sockid, (char*)pkt.data.data(), pkt.data.size(), flags, &saddr, slen);
 		#endif
-		
-		if (m_protocol != tcp) {
-			sockaddr_in saddr;
-			socklen_t slen = sizeof(saddr);
-			
-			saddr.sin_family = m_domain;
-			saddr.sin_addr.s_addr = pkt.rem.addr;
-			if (pkt.rem.addr == 0) {
-				inet_pton( m_domain, pkt.rem.addrstring.c_str(), &saddr.sin_addr.s_addr);
-			}
-			saddr.sin_port = htons(pkt.rem.port);
-			
-			br = ::sendto(m_sockid, dataptr, pkt.data.size(), flags, (sockaddr*)&saddr, slen);
-		} else {
-			br = ::sendto(m_sockid, dataptr, pkt.data.size(), flags, NULL, 0);
-		}
 		
 		if (br == -1) {
 			e.type = BSD;
@@ -575,33 +629,23 @@ namespace sks {
 	
 	//Protected functions:
 	void socket_base::setlocinfo() {
-		sockaddr_in saddr;
+		sockaddr saddr;
 		socklen_t slen = sizeof(saddr);
 		
-		if (getsockname(m_sockid, (sockaddr*)&saddr, &slen) == -1) {
+		if (getsockname(m_sockid, &saddr, &slen) == -1) {
 			return;
 		}
 		
-		m_loc_addr.d = m_domain;
-		m_loc_addr.addr = saddr.sin_addr.s_addr;
-		char addrstr[0xFF];
-		inet_ntop(m_domain, &m_loc_addr.addr, addrstr, 0xFF);
-		m_loc_addr.addrstring = addrstr;
-		m_loc_addr.port = ntohs( saddr.sin_port );
+		m_loc_addr = satosa(&saddr);
 	}
 	void socket_base::setreminfo() {
-		sockaddr_in saddr;
+		sockaddr saddr;
 		socklen_t slen = sizeof(saddr);
 		
-		if (getpeername(m_sockid, (sockaddr*)&saddr, &slen) == -1) {
+		if (getpeername(m_sockid, &saddr, &slen) == -1) {
 			return;
 		}
 		
-		m_rem_addr.d = m_domain;
-		m_rem_addr.addr = saddr.sin_addr.s_addr;
-		char addrstr[0xFF];
-		inet_ntop(m_domain, &m_rem_addr.addr, addrstr, 0xFF);
-		m_rem_addr.addrstring = addrstr;
-		m_rem_addr.port = ntohs( saddr.sin_port );
+		m_rem_addr = satosa(&saddr);
 	}
 }

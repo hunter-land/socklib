@@ -206,6 +206,7 @@ void testTCPClient() {
 	
 	//Construct address struct
 	sks::sockaddress rem;
+	rem.d = sks::ipv4;
 	rem.addrstring = "10.0.0.150";
 	std::cout << "IP = " << rem.addrstring << "; Port = ";
 	std::cin >> rem.port;
@@ -312,6 +313,7 @@ void testUDPTX() {
 	//Create datagram to send
 	sks::packet dg;
 	dg.rem.addrstring = "localhost";
+	dg.rem.d = sks::ipv4;
 	std::cout << "IP = " << dg.rem.addrstring << "; Port = ";
 	std::cin >> dg.rem.port;
 	uint8_t i = 0;
@@ -322,12 +324,13 @@ void testUDPTX() {
 	while (s.valid()) {
 		//Set i
 		dg.data[dg.data.size() - 1] = i + '0';
-		if (s.sendto(dg).erno == 0) {
+		sks::serror e = s.sendto(dg);
+		if (e.erno == 0) {
 			dg.data.push_back(0);
 			std::cout << "Sent " << dg.data.size() << " bytes to " << dg.rem.addrstring << ":" << dg.rem.port <<  ": " << (char*)dg.data.data() << std::endl;
 			dg.data.resize(ascii.size());
 		} else {
-			std::cerr << "Failed to send data" << std::endl;
+			std::cerr << "Failed to send data: " << sks::errorstr(e) << std::endl;
 		}
 		
 		std::this_thread::sleep_for( std::chrono::seconds(1) );
