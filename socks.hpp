@@ -138,6 +138,9 @@ namespace sks {
 		//Bind to given port and given IP
 		//Returns BSD error (if any)
 		int bind(std::string addr, unsigned short port);
+		//Bind to given socket address
+		//Returns BSD error (if any)
+		int bind(sockaddress sa);
 		
 		//Start listening to connection requests
 		//Returns BSD error (if any)
