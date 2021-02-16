@@ -28,6 +28,22 @@ extern "C" {
 
 namespace sks {
 	
+	std::string to_string(domain d) {
+		switch (d) {
+			case unix:
+				return "UNIX";
+			case ipv4:
+				return "IPv4";
+			case ipv6:
+				return "IPv6";
+			default:
+				return "";
+		}
+	}
+	std::string to_string(sockaddress sa) {
+		return sa.addrstring + (sa.port != 0 ? (std::string(":") + std::to_string(sa.port)) : "");
+	}
+	
 	std::string errorstr(int e) {
 		std::string s;
 		#ifndef _WIN32
@@ -91,25 +107,30 @@ namespace sks {
 	}
 	
 	//Converting sockaddress to sockaddr
-	sockaddr satosa(const sockaddress& s) {
-		sockaddr saddr;
+	sockaddr_storage satosa(const sockaddress& s) {
+		sockaddr_storage saddr;
 		
-		saddr.sa_family = s.d;
+		saddr.ss_family = s.d;
 		switch (s.d) {
 			case ipv4:
 				{
 					sockaddr_in* a = (sockaddr_in*)&saddr;
+					
+					memcpy(&a->sin_addr, s.addr, sizeof(a->sin_addr));
 					
 					bool addrzero = true;
 					for (size_t i = 0; i < sizeof(s.addr) && i < sizeof(a->sin_addr) && addrzero; i++) {
 						addrzero &= s.addr[i] == 0;
 					}
 					
-					if (addrzero) { //Get address from string
-						inet_pton( s.d, s.addrstring.c_str(), &a->sin_addr );
+					if (addrzero) {
+						if (s.addrstring.size() > 0) { //Get address from string
+							inet_pton( s.d, s.addrstring.c_str(), &a->sin_addr );
+						} else {
+							a->sin_addr.s_addr = INADDR_ANY;
+						}
 					}
 					
-					memcpy(&a->sin_addr, s.addr, sizeof(a->sin_addr));
 					a->sin_port = ntohs( s.port );
 				}
 				break;
@@ -117,16 +138,22 @@ namespace sks {
 				{
 					sockaddr_in6* a = (sockaddr_in6*)&saddr;
 					
+					memcpy(&a->sin6_addr, s.addr, sizeof(a->sin6_addr));
+					
 					bool addrzero = true;
 					for (size_t i = 0; i < sizeof(s.addr) && i < sizeof(a->sin6_addr) && addrzero; i++) {
 						addrzero &= s.addr[i] == 0;
 					}
 					
-					if (addrzero) { //Get address from string
-						inet_pton( s.d, s.addrstring.c_str(), &a->sin6_addr );
+					if (addrzero) {
+						if (s.addrstring.size() > 0) { //Get address from string
+							inet_pton( s.d, s.addrstring.c_str(), &a->sin6_addr );
+						} else {
+							a->sin6_addr = in6addr_any;
+							//a->sin6_addr = IN6ADDR_ANY_INIT;
+						}
 					}
 					
-					memcpy(&a->sin6_addr, s.addr, sizeof(a->sin6_addr));
 					a->sin6_port = ntohs( s.port );
 				}
 				break;
@@ -134,7 +161,9 @@ namespace sks {
 				{
 					sockaddr_un* a = (sockaddr_un*)&saddr;
 					
-					strncpy(a->sun_path, s.addrstring.c_str(), s.addrstring.size());
+					a->sun_path[0] = 0;
+					strncpy(a->sun_path, s.addrstring.c_str(), sizeof(a->sun_path));
+					a->sun_path[sizeof(a->sun_path) / sizeof(a->sun_path[0]) - 1] = 0; //Ensure null-termination
 				}
 				break;
 		}
@@ -142,10 +171,10 @@ namespace sks {
 		return saddr;
 	}
 	//Converting sockaddr to sockaddress
-	sockaddress satosa(const sockaddr* const saddr) {
+	sockaddress satosa(const sockaddr_storage* const saddr) {
 		sockaddress s;
 		
-		s.d = (domain)saddr->sa_family;
+		s.d = (domain)saddr->ss_family;
 		switch (s.d) {
 			case ipv4:
 				{
@@ -244,6 +273,9 @@ namespace sks {
 				_close(m_sockid);
 			}
 		#endif
+		if (m_domain == unix) {
+			unlink(m_loc_addr.addrstring.c_str());
+		}
 	}
 	
 	sockaddress socket_base::locaddr() {
@@ -264,7 +296,7 @@ namespace sks {
 	}
 	bool socket_base::broadcastoption() {
 		bool b;
-		int len = sizeof(b);
+		socklen_t len = sizeof(b);
 		#ifndef _WIN32 //POSIX, for normal people
 			getsockopt(m_sockid, SOL_SOCKET, SO_BROADCAST, (int*)&b, &len);
 		#else //Whatever-this-is, for windows people
@@ -283,7 +315,7 @@ namespace sks {
 	}
 	bool socket_base::keepaliveoption() {
 		bool b;
-		int len = sizeof(b);
+		socklen_t len = sizeof(b);
 		#ifndef _WIN32 //POSIX, for normal people
 			getsockopt(m_sockid, SOL_SOCKET, SO_KEEPALIVE, (int*)&b, &len);
 		#else //Whatever-this-is, for windows people
@@ -292,6 +324,7 @@ namespace sks {
 		return b;
 	}
 	
+	//Timeout values
 	int socket_base::setrxtimeout(std::chrono::microseconds time) {
 		#ifndef _WIN32 //POSIX, for normal people
 			struct timeval tv;
@@ -344,38 +377,20 @@ namespace sks {
 	}
 	
 	int socket_base::bind() {
-		sockaddr_in saddr;
+		sockaddress sa;
+		sa.d = m_domain;
+		memset(&sa.addr, 0, sizeof(sa.addr));
+		sa.port = 0;
 		
-		saddr.sin_family = m_domain;
-		saddr.sin_addr.s_addr = INADDR_ANY;
-		saddr.sin_port = INADDR_ANY;
-		
-		if (::bind(m_sockid, (sockaddr*)&saddr, sizeof(saddr)) == -1) {
-			return errno;
-		} else {
-			setlocinfo();
-			if (m_protocol == udp) {
-				m_valid = true;
-			}
-			return 0;
-		}
+		return bind(sa);
 	}
 	int socket_base::bind(unsigned short port) {
-		sockaddr_in saddr;
+		sockaddress sa;
+		sa.d = m_domain;
+		memset(&sa.addr, 0, sizeof(sa.addr));
+		sa.port = port;
 		
-		saddr.sin_family = m_domain;
-		saddr.sin_addr.s_addr = INADDR_ANY;
-		saddr.sin_port = htons( port );
-		
-		if (::bind(m_sockid, (sockaddr*)&saddr, sizeof(saddr)) == -1) {
-			return errno;
-		} else {
-			setlocinfo();
-			if (m_protocol == udp) {
-				m_valid = true;
-			}
-			return 0;
-		}
+		return bind(sa);
 	}
 	int socket_base::bind(std::string addr) {
 		sockaddress sa;
@@ -383,17 +398,7 @@ namespace sks {
 		sa.addrstring = addr;
 		sa.port = INADDR_ANY;
 		
-		sockaddr saddr = satosa(sa);
-		
-		if (::bind(m_sockid, &saddr, sizeof(saddr)) == -1) {
-			return errno;
-		} else {
-			setlocinfo();
-			if (m_protocol == udp) {
-				m_valid = true;
-			}
-			return 0;
-		}
+		return bind(sa);
 	}
 	int socket_base::bind(std::string addr, unsigned short port) {
 		sockaddress sa;
@@ -401,22 +406,13 @@ namespace sks {
 		sa.addrstring = addr;
 		sa.port = port;
 		
-		sockaddr saddr = satosa(sa);
-		
-		if (::bind(m_sockid, &saddr, sizeof(saddr)) == -1) {
-			return errno;
-		} else {
-			setlocinfo();
-			if (m_protocol == udp) {
-				m_valid = true;
-			}
-			return 0;
-		}
+		return bind(sa);
 	}
 	int socket_base::bind(sockaddress sa) {
-		sockaddr saddr = satosa(sa);
-		
-		if (::bind(m_sockid, &saddr, sizeof(saddr)) == -1) {
+		sockaddr_storage saddr = satosa(sa);
+		int slen = sizeof(saddr);
+				
+		if (::bind(m_sockid, (sockaddr*)&saddr, slen) == -1) {
 			return errno;
 		} else {
 			setlocinfo();
@@ -447,9 +443,9 @@ namespace sks {
 			msg += " is not a listener.";
 			throw std::runtime_error(msg);
 		}
-		sockaddr saddr;
+		sockaddr_storage saddr;
 		socklen_t saddrlen = sizeof(saddr);
-		int newsockid = ::accept(m_sockid, &saddr, &saddrlen);
+		int newsockid = ::accept(m_sockid, (sockaddr*)&saddr, &saddrlen);
 		if (newsockid == -1) {
 			//For some reason, we failed to accept a connection
 			//We cannot fulfill return type
@@ -458,17 +454,17 @@ namespace sks {
 			msg += errorstr(errno);
 			throw std::runtime_error(msg);
 		}
-		socket_base s(newsockid, &saddr, m_protocol);
+		socket_base s(newsockid, (sockaddr*)&saddr, m_protocol);
 		s.setpre(pre());
 		s.setpost(post());
 		return s;
 	}
 	
 	int socket_base::connect(sockaddress sa) {
-		sockaddr saddr = satosa(sa);
+		sockaddr_storage saddr = satosa(sa);
 		socklen_t slen = sizeof(saddr);
 		
-		if (::connect(m_sockid, &saddr, slen) == -1) {
+		if (::connect(m_sockid, (sockaddr*)&saddr, slen) == -1) {
 			return errno;
 		}
 		
@@ -493,16 +489,16 @@ namespace sks {
 			return e;
 		}
 		
-		sockaddr saddr;
+		sockaddr_storage saddr;
 		socklen_t slen = sizeof(saddr);
 		pkt.data.resize(n);
 		//uint8_t buf[n]; //0x100
 		
 		//std::cout << "Reading up to " << n << " bytes ";
 		#ifndef _WIN32
-			ssize_t br = ::recvfrom(m_sockid, (void*)pkt.data.data(), n, flags, &saddr, &slen);
+			ssize_t br = ::recvfrom(m_sockid, (void*)pkt.data.data(), n, flags, (sockaddr*)&saddr, &slen);
 		#else
-			int br = ::recvfrom(m_sockid, (char*)pkt.data.data(), n, flags, &saddr, &slen);
+			int br = ::recvfrom(m_sockid, (char*)pkt.data.data(), n, flags, (sockaddr*)&saddr, &slen);
 		#endif
 		//std::cout << "(Read " << br << " bytes)" << std::endl;
 		if (br <= 0) {
@@ -550,7 +546,7 @@ namespace sks {
 		
 		if (m_valid == false) {
 			e.type = CLASS;
-			e.erno = 2;
+			e.erno = INVALID;
 			return e;
 		}
 		
@@ -568,13 +564,13 @@ namespace sks {
 			pkt.rem = m_rem_addr;
 		}
 		
-		sockaddr saddr = satosa(pkt.rem);
+		sockaddr_storage saddr = satosa(pkt.rem);
 		socklen_t slen = sizeof(saddr);
 		
 		#ifndef _WIN32
-			ssize_t br = ::sendto(m_sockid, (void*)pkt.data.data(), pkt.data.size(), flags, &saddr, slen);
+			ssize_t br = ::sendto(m_sockid, (void*)pkt.data.data(), pkt.data.size(), flags, (sockaddr*)&saddr, slen);
 		#else
-			int br = ::sendto(m_sockid, (char*)pkt.data.data(), pkt.data.size(), flags, &saddr, slen);
+			int br = ::sendto(m_sockid, (char*)pkt.data.data(), pkt.data.size(), flags, (sockaddr*)&saddr, slen);
 		#endif
 		
 		if (br == -1) {
@@ -629,20 +625,20 @@ namespace sks {
 	
 	//Protected functions:
 	void socket_base::setlocinfo() {
-		sockaddr saddr;
+		sockaddr_storage saddr;
 		socklen_t slen = sizeof(saddr);
 		
-		if (getsockname(m_sockid, &saddr, &slen) == -1) {
+		if (getsockname(m_sockid, (sockaddr*)&saddr, &slen) == -1) {
 			return;
 		}
 		
 		m_loc_addr = satosa(&saddr);
 	}
 	void socket_base::setreminfo() {
-		sockaddr saddr;
+		sockaddr_storage saddr;
 		socklen_t slen = sizeof(saddr);
 		
-		if (getpeername(m_sockid, &saddr, &slen) == -1) {
+		if (getpeername(m_sockid, (sockaddr*)&saddr, &slen) == -1) {
 			return;
 		}
 		

@@ -1,3 +1,4 @@
+#pragma once
 extern "C" {
 	#ifndef _WIN32 //POSIX, for normal people
 		#include <sys/socket.h>
@@ -16,6 +17,7 @@ namespace sks {
 		ipv4 = AF_INET,
 		ipv6 = AF_INET6
 	};
+	std::string to_string(domain d);
 	enum protocol {
 		tcp = SOCK_STREAM,
 		udp = SOCK_DGRAM,
@@ -37,11 +39,11 @@ namespace sks {
 		CLOSED //Connection has been closed proper
 	};
 	enum usererrors { //User error
-		BADPSR = 1, //Non-zero return
-		BADPRR //Non-zero return
+		BADPSR = 1, //Non-zero return of pre-send
+		BADPRR //Non-zero return of post-recv
 	};
 	struct serror { //Socket error
-		errortype type; //Error's domain
+		errortype type; //Error type/source
 		int erno; //Error value
 	};
 	
@@ -57,6 +59,7 @@ namespace sks {
 		std::string addrstring = "";
 		unsigned short port = 0;
 	};
+	std::string to_string(sockaddress sa);
 	
 	struct packet {
 		//Remote address (TX/RX)
@@ -64,7 +67,7 @@ namespace sks {
 		//Data
 		std::vector<uint8_t> data;
 	};
-		
+	
 	class socket_base {
 	protected:
 		int m_sockid = -1;
