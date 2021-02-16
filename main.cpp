@@ -104,9 +104,9 @@ void testTCPHost() {
 	}
 	
 	//Enter listen mode
-	r = h.listen();
-	if (r != 0) {
-		std::cerr << "Failed to start listening: " << sks::errorstr(r) << " (" << r << ")" << std::endl;
+	sks::serror sr = h.listen();
+	if (sr.erno != 0) {
+		std::cerr << "Failed to start listening: " << sks::errorstr(sr) << std::endl;
 	}
 	
 	//Wait for connection
@@ -151,9 +151,9 @@ void testTCPHost2() {
 	}
 	
 	//Enter listen mode
-	r = h.listen();
+	sks::serror sr = h.listen();
 	if (r != 0) {
-		std::cerr << "Failed to start listening: " << sks::errorstr(r) << " (" << r << ")" << std::endl;
+		std::cerr << "Failed to start listening: " << sks::errorstr(sr) << std::endl;
 	}
 	
 	//Apply pre and post functions

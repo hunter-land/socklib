@@ -40,6 +40,18 @@ namespace sks {
 				return "";
 		}
 	}
+	std::string to_string(protocol p) {
+		switch (p) {
+			case tcp:
+				return "tcp";
+			case udp:
+				return "udp";
+			case seq:
+				return "seq";
+			default:
+				return "";
+		}
+	}
 	std::string to_string(sockaddress sa) {
 		return sa.addrstring + (sa.port != 0 ? (std::string(":") + std::to_string(sa.port)) : "");
 	}
@@ -419,17 +431,28 @@ namespace sks {
 			if (m_protocol == udp) {
 				m_valid = true;
 			}
+			m_bound = true;
 			return 0;
 		}
 	}
 	
-	int socket_base::listen(int backlog) {
+	serror socket_base::listen(int backlog) {
+		serror e;
+		e.erno = 0;
+		
+		if (!m_bound) {
+			e.type = CLASS;
+			e.erno = UNBOUND;
+			return e;
+		}
 		if (::listen(m_sockid, backlog) == -1) {
-			return errno;
+			e.type = BSD;
+			e.erno = errno;
+			return e;
 		} else {
 			m_valid = true;
 			m_listening = true;
-			return 0;
+			return e;
 		}
 	}
 	

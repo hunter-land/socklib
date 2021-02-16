@@ -39,6 +39,7 @@ std::string format(fmt f) {
 }
 static std::string tagfail("[\033[31mFAIL\033[0m]");
 static std::string tagok("[\033[32m OK \033[0m]");
+static std::stringstream verifystream;
 static std::mutex outmutex;
 template<typename T>
 static std::string vecstring(std::vector<T> v, size_t endsize = 2) { //a b ... y z
@@ -73,11 +74,11 @@ static int verify(std::string name, T actual, T expected) {
 	report[name] = match;
 	outmutex.lock();
 	if (match) {
-		std::cout << tagok << "\t" << name << std::endl;
+		verifystream << tagok << "\t" << name << std::endl;
 	} else {
-		std::cerr << tagfail << "\t" << name << std::endl;
-		std::cerr << "\tExpected " << format(yellow) << expected << format(reset) << std::endl;
-		std::cerr << "\tGot " << format(red) << actual << format(reset) << std::endl;
+		verifystream << tagfail << "\t" << name << std::endl;
+		verifystream << "\tExpected " << format(yellow) << expected << format(reset) << std::endl;
+		verifystream << "\tGot " << format(red) << actual << format(reset) << std::endl;
 	}
 	outmutex.unlock();
 	
@@ -89,11 +90,11 @@ static int verify(std::string name, sks::serror actual, sks::serror expected) {
 	report[name] = match;
 	outmutex.lock();
 	if (match) {
-		std::cout << tagok << "\t" << name << std::endl;
+		verifystream << tagok << "\t" << name << std::endl;
 	} else {
-		std::cerr << tagfail << "\t" << name << std::endl;
-		std::cerr << "\tExpected " << format(yellow) << sks::errorstr(expected) << format(reset) << std::endl;
-		std::cerr << "\tGot " << format(red) << sks::errorstr(actual) << format(reset) << std::endl;
+		verifystream << tagfail << "\t" << name << std::endl;
+		verifystream << "\tExpected " << format(yellow) << sks::errorstr(expected) << format(reset) << std::endl;
+		verifystream << "\tGot " << format(red) << sks::errorstr(actual) << format(reset) << std::endl;
 	}
 	outmutex.unlock();
 	
@@ -105,11 +106,11 @@ static int verify(std::string name, std::vector<uint8_t> actual, std::vector<uin
 	report[name] = match;
 	outmutex.lock();
 	if (match) {
-		std::cout << tagok << "\t" << name << std::endl;
+		verifystream << tagok << "\t" << name << std::endl;
 	} else {
-		std::cerr << tagfail << "\t" << name << std::endl;
-		std::cerr << "\tExpected " << format(yellow) << vecstring(expected) << format(reset) << std::endl;
-		std::cerr << "\tGot " << format(red) << vecstring(actual) << format(reset) << std::endl;
+		verifystream << tagfail << "\t" << name << std::endl;
+		verifystream << "\tExpected " << format(yellow) << vecstring(expected) << format(reset) << std::endl;
+		verifystream << "\tGot " << format(red) << vecstring(actual) << format(reset) << std::endl;
 	}
 	outmutex.unlock();
 	
@@ -121,11 +122,11 @@ static int verify(std::string name, int actual, int expected) {
 	report[name] = match;
 	outmutex.lock();
 	if (match) {
-		std::cout << tagok << "\t" << name << std::endl;
+		verifystream << tagok << "\t" << name << std::endl;
 	} else {
-		std::cerr << tagfail << "\t" << name << std::endl;
-		std::cerr << "\tExpected " << format(yellow) << sks::errorstr(expected) << format(reset) << std::endl;
-		std::cerr << "\tGot " << format(red) << sks::errorstr(actual) << format(reset) << std::endl;
+		verifystream << tagfail << "\t" << name << std::endl;
+		verifystream << "\tExpected " << format(yellow) << sks::errorstr(expected) << format(reset) << std::endl;
+		verifystream << "\tGot " << format(red) << sks::errorstr(actual) << format(reset) << std::endl;
 	}
 	outmutex.unlock();
 	
@@ -137,11 +138,11 @@ static int verify(std::string name, const std::runtime_error& actual, const std:
 	report[name] = match;
 	outmutex.lock();
 	if (match) {
-		std::cout << tagok << "\t" << name << std::endl;
+		verifystream << tagok << "\t" << name << std::endl;
 	} else {
-		std::cerr << tagfail << "\t" << name << std::endl;
-		std::cerr << "\tExpected " << format(yellow) << expected.what() << format(reset) << std::endl;
-		std::cerr << "\tGot " << format(red) << actual.what() << format(reset) << std::endl;
+		verifystream << tagfail << "\t" << name << std::endl;
+		verifystream << "\tExpected " << format(yellow) << expected.what() << format(reset) << std::endl;
+		verifystream << "\tGot " << format(red) << actual.what() << format(reset) << std::endl;
 	}
 	outmutex.unlock();
 	
@@ -186,6 +187,7 @@ int tcp_proper();
 void tcp_proper_t1(int&, sks::domain);
 void tcp_proper_t2(int&, sks::domain);
 void init();
+void cleanup();
 
 
 
@@ -210,13 +212,14 @@ void allUnitTests() {
 	init();
 	
 	tcp_proper();
+	
+	cleanup();
 }
 
 int tcp_proper() {
-	for (sks::domain d : allDomains) {
-		std::cout << std::endl;
-		
+	for (sks::domain d : allDomains) {		
 		hostvalid = 0;
+		verifystream = std::stringstream(std::string());
 		
 		int t1f = 0;
 		int t2f = 0;
@@ -230,7 +233,7 @@ int tcp_proper() {
 		//Report
 		if (t1f > 0 || t2f > 0) { //At least one error
 			std::cerr << tagfail << "\ttcp_proper() failed for " << sks::to_string(d) << " domain" << std::endl;
-			//std::cerr << "\t\t" << t1f << ", " << t2f << std::endl;
+			std::cerr << verifystream.str() << std::endl;
 		} else {
 			std::cout << tagok << "\ttcp_proper() passed for " << sks::to_string(d) << " domain" << std::endl;
 		}
@@ -266,8 +269,8 @@ void tcp_proper_t1(int& failures, sks::domain d) {
 	failures += bound;
 	
 	
-	e = h.listen();
-	failures += verify(prefix + "h.listen()", e, 0);
+	se = h.listen();
+	failures += verify(prefix + "h.listen()", se, snoerr);
 	
 	sks::socket_base* hc = nullptr;
 	try {
@@ -275,6 +278,14 @@ void tcp_proper_t1(int& failures, sks::domain d) {
 		failures += verify(prefix + "h.accept()", norte, norte);
 	} catch (std::runtime_error& rte) {
 		failures += verify(prefix + "h.accept()", rte, norte);
+		
+		//Accept failed, we have no socket at `hc`, we cannot continue the test
+		//Assume remaining verifications all fail
+		failures += 4;
+		if (d != sks::unix) {
+			failures += 3;
+		}
+		return;
 	}
 	
 	e = hc->setrxtimeout(5000000); //microseconds
@@ -343,6 +354,9 @@ void init() {
 		allBytes.push_back(i);
 		allBytesReversed.push_back(UINT8_MAX - i);
 	}
+}
+void cleanup() {
+	
 }
 
 //

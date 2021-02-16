@@ -23,6 +23,7 @@ namespace sks {
 		udp = SOCK_DGRAM,
 		seq = SOCK_SEQPACKET
 	};
+	std::string to_string(protocol p);
 	enum option {
 		broadcast = SO_BROADCAST,
 		keepalive = SO_KEEPALIVE
@@ -36,7 +37,8 @@ namespace sks {
 	enum classerrors { //Socket class error
 		NOBYTES = 1, //Variable has no data
 		INVALID, //Socket is in invalid state
-		CLOSED //Connection has been closed proper
+		CLOSED, //Connection has been closed proper
+		UNBOUND //Socket was not bound when it should have been
 	};
 	enum usererrors { //User error
 		BADPSR = 1, //Non-zero return of pre-send
@@ -73,6 +75,7 @@ namespace sks {
 		int m_sockid = -1;
 		domain m_domain;
 		protocol m_protocol;
+		bool m_bound = false;
 		bool m_valid = false;
 		bool m_listening = false;
 		sockaddress m_loc_addr;
@@ -146,8 +149,7 @@ namespace sks {
 		int bind(sockaddress sa);
 		
 		//Start listening to connection requests
-		//Returns BSD error (if any)
-		int listen(int backlog = 0xFF);
+		serror listen(int backlog = 0xFF);
 		
 		//Accept pending connection request (from listen(...))
 		//Returns connected socket
