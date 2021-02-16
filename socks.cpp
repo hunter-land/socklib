@@ -247,14 +247,27 @@ namespace sks {
 			setsockopt(m_sockid, SOL_SOCKET, SO_REUSEADDR, (char*)&tru, sizeof(tru));
 		#endif*/
 	}
-	socket_base::socket_base(int sockfd, sockaddr *saddr, protocol t) {
+	socket_base::socket_base(int sockfd) {
 		//std::cout << "Wrapping socket #" << sockfd << std::endl;
 		m_sockid = sockfd;
-		m_protocol = t;
-		m_domain = (domain)saddr->sa_family;
 		
-		setlocinfo();
+		int t;
+		socklen_t tlen = sizeof(t);
+		
+		#ifndef _WIN32
+			int e = getsockopt(m_sockid, SOL_SOCKET, SO_TYPE, &t, &tlen);
+		#else
+			int e = getsockopt(m_sockid, SOL_SOCKET, SO_TYPE, (char*)&t, &tlen);
+		#endif
+		
+		if (e == 0) {
+			m_protocol = (protocol)t;
+		}
+		
+		sockaddr_storage saddr = setlocinfo();
 		setreminfo();
+		
+		m_domain = (domain)saddr.ss_family;
 		
 		m_valid = true;
 	}
@@ -262,8 +275,11 @@ namespace sks {
 		std::swap(m_sockid, s.m_sockid);
 		m_domain = std::move(s.m_domain);
 		m_protocol = std::move(s.m_protocol);
+		
 		m_valid = std::move(s.m_valid);
 		m_listening = std::move(s.m_listening);
+		m_bound = std::move(s.m_bound);
+		
 		m_loc_addr = std::move(s.m_loc_addr);
 		m_rem_addr = std::move(s.m_rem_addr);
 
@@ -408,7 +424,7 @@ namespace sks {
 		sockaddress sa;
 		sa.d = m_domain;
 		sa.addrstring = addr;
-		sa.port = INADDR_ANY;
+		sa.port = 0;
 		
 		return bind(sa);
 	}
@@ -423,7 +439,7 @@ namespace sks {
 	int socket_base::bind(sockaddress sa) {
 		sockaddr_storage saddr = satosa(sa);
 		int slen = sizeof(saddr);
-				
+		
 		if (::bind(m_sockid, (sockaddr*)&saddr, slen) == -1) {
 			return errno;
 		} else {
@@ -477,7 +493,7 @@ namespace sks {
 			msg += errorstr(errno);
 			throw std::runtime_error(msg);
 		}
-		socket_base s(newsockid, (sockaddr*)&saddr, m_protocol);
+		socket_base s(newsockid);
 		s.setpre(pre());
 		s.setpost(post());
 		return s;
@@ -647,24 +663,30 @@ namespace sks {
 	}
 	
 	//Protected functions:
-	void socket_base::setlocinfo() {
+	sockaddr_storage socket_base::setlocinfo() {
 		sockaddr_storage saddr;
 		socklen_t slen = sizeof(saddr);
 		
 		if (getsockname(m_sockid, (sockaddr*)&saddr, &slen) == -1) {
-			return;
+			memset(&saddr, 0, sizeof(saddr));
+			return saddr;
 		}
 		
 		m_loc_addr = satosa(&saddr);
+		
+		return saddr;
 	}
-	void socket_base::setreminfo() {
+	sockaddr_storage socket_base::setreminfo() {
 		sockaddr_storage saddr;
 		socklen_t slen = sizeof(saddr);
 		
 		if (getpeername(m_sockid, (sockaddr*)&saddr, &slen) == -1) {
-			return;
+			memset(&saddr, 0, sizeof(saddr));
+			return saddr;
 		}
 		
 		m_rem_addr = satosa(&saddr);
+		
+		return saddr;
 	}
 }

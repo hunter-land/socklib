@@ -21,7 +21,9 @@ namespace sks {
 	enum protocol {
 		tcp = SOCK_STREAM,
 		udp = SOCK_DGRAM,
-		seq = SOCK_SEQPACKET
+		seq = SOCK_SEQPACKET,
+		rdm = SOCK_RDM,
+		raw = SOCK_RAW
 	};
 	std::string to_string(protocol p);
 	enum option {
@@ -75,9 +77,9 @@ namespace sks {
 		int m_sockid = -1;
 		domain m_domain;
 		protocol m_protocol;
-		bool m_bound = false;
 		bool m_valid = false;
 		bool m_listening = false;
+		bool m_bound = false;
 		sockaddress m_loc_addr;
 		sockaddress m_rem_addr;
 		
@@ -87,13 +89,14 @@ namespace sks {
 		std::chrono::microseconds m_rxto = std::chrono::microseconds(0);
 		std::chrono::microseconds m_txto = std::chrono::microseconds(0);
 		
-		void setlocinfo();
-		void setreminfo();
+		sockaddr_storage setlocinfo();
+		sockaddr_storage setreminfo();
 	public:
 		//Create a new socket
 		socket_base(domain d, protocol t = protocol::tcp, int p = 0);
 		//Wrap an existing C socket file descriptor with this class
-		socket_base(int sockfd, sockaddr *saddr, protocol t);
+		//Constructor assumes sockfd is in a valid state (able to send/recv) and not a listener
+		socket_base(int sockfd);
 		//Move constructor
 		socket_base( socket_base&& s );
 		//Close and deconstruct socket
