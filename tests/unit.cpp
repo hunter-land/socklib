@@ -203,6 +203,17 @@ int main() {
 		}
 	}
 	
+	std::cout << std::endl;
+	if (failureTotal == 0) {
+		std::cout << tagok << "\tAll tests passed." << std::endl;
+	} else {
+		std::cerr << tagfail << "\tTotal of " << failureTotal << " check(s) failed." << std::endl;
+	}
+	std::cout << std::endl;
+	
+	//Set badge value and color for passing:
+	//TODO
+	
 	return failureTotal;
 }
 
@@ -232,10 +243,10 @@ int tcp_proper() {
 		
 		//Report
 		if (t1f > 0 || t2f > 0) { //At least one error
-			std::cerr << tagfail << "\ttcp_proper() failed for " << sks::to_string(d) << " domain" << std::endl;
+			std::cerr << tagfail << "\ttcp_proper(" << sks::to_string(d) << ") failed with " << (t1f + t2f) << " errors:" << std::endl;
 			std::cerr << verifystream.str() << std::endl;
 		} else {
-			std::cout << tagok << "\ttcp_proper() passed for " << sks::to_string(d) << " domain" << std::endl;
+			std::cout << tagok << "\ttcp_proper(" << sks::to_string(d) << ") passed without errors." << std::endl;
 		}
 	}
 	std::cout << std::endl;
@@ -252,8 +263,8 @@ void tcp_proper_t1(int& failures, sks::domain d) {
 	sks::socket_base h(d, sks::tcp); //Construct h
 	
 	if (d == sks::unix) {
+		unlink("./.socklib_unit_test_unix_socket"); //Make sure file is non-existant so we can bind successfully
 		//Bind to this
-		unlink("./.socklib_unit_test_unix_socket");
 		e = h.bind("./.socklib_unit_test_unix_socket");
 	} else {
 		//Bind to something
