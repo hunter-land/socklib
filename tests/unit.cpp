@@ -210,10 +210,7 @@ int main() {
 		std::cerr << tagfail << "\tTotal of " << failureTotal << " check(s) failed." << std::endl;
 	}
 	std::cout << std::endl;
-	
-	//Set badge value and color for passing:
-	//TODO
-	
+		
 	return failureTotal;
 }
 
