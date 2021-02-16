@@ -1,6 +1,6 @@
 # SockLib / SocKetS
 
-![Build Status](![Build](https://github.com/hunter-land/socklib/workflows/Build/badge.svg))
+![Build Status](https://github.com/hunter-land/socklib/workflows/Build/badge.svg)
 
 SocKetS is a C++ wrapping of the standard C sockets, bringing modern interfacing to sockets.
 
