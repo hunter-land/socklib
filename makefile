@@ -17,9 +17,9 @@ test : $(objects) tests/unit.o
 
 .PHONY : clean
 clean :
-	-rm $(objects)
-	-rm main.o
-	-rm main
+	-@rm $(objects)
+	-@rm main.o
+	-@rm main
 	
-	-rm tests/unit.o
-	-rm tests/unit
+	-@rm tests/unit.o
+	-@rm tests/unit
