@@ -103,8 +103,8 @@ namespace sks {
 		~socket_base();
 		
 		//This object is non-copyable (Would terminate connection in process)
-		socket_base( const socket_base& ) = delete;
-		socket_base& operator=( const socket_base& ) = delete;
+		socket_base( const socket_base& ) = delete; //No copy constructor
+		socket_base& operator=( const socket_base& ) = delete; //No copy assignment
 		
 		//Get local address
 		sockaddress locaddr();

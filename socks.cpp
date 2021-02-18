@@ -17,13 +17,13 @@ extern "C" {
 		#include <unistd.h> //close
 		#include <sys/ioctl.h> //ioctl
 		#include <sys/time.h> //timeval
+		#include <poll.h>
 	#else
 		#pragma comment(lib, "Ws2_32.lib")
 		#include <ws2tcpip.h> //should have inet_pton but only does sometimes: Schrödinger's header
 		#include <io.h>
 		#include <ioapiset.h>
 	#endif
-	#include <poll.h>
 }
 #include <stdexcept>
 
@@ -152,6 +152,11 @@ namespace sks {
 					}
 					
 					a->sin_port = ntohs( s.port );
+					
+					//Set address length
+					if (saddrlen != nullptr) {
+						*saddrlen = sizeof(sockaddr_in);
+					}
 				}
 				break;
 			case ipv6:
@@ -175,6 +180,11 @@ namespace sks {
 					}
 					
 					a->sin6_port = ntohs( s.port );
+					
+					//Set address length
+					if (saddrlen != nullptr) {
+						*saddrlen = sizeof(sockaddr_in6);
+					}
 				}
 				break;
 			case unix:
@@ -185,6 +195,8 @@ namespace sks {
 					size_t n = std::min(sizeof(a->sun_path) - 1, s.addrstring.size());
 					memcpy(a->sun_path, s.addrstring.data(), n);
 					a->sun_path[n] = 0; //Ensure null-termination
+					
+					//Set address length
 					if (saddrlen != nullptr) {
 						*saddrlen = sizeof(sa_family_t) + n;
 					}
@@ -259,15 +271,6 @@ namespace sks {
 			throw std::runtime_error(msg);
 		}
 		//std::cout << "Created socket #" << m_sockid << std::endl;
-		
-		//This is un-necessary and problematic:
-		/*#ifndef _WIN32 //POSIX, for normal people
-			int tru = 1; //setsockopt needs this to be pointed to, so we make the variable here
-			setsockopt(m_sockid, SOL_SOCKET, SO_REUSEADDR, &tru, sizeof(tru));
-		#else //Whatever-this-is, for windows people
-			DWORD tru = 1;
-			setsockopt(m_sockid, SOL_SOCKET, SO_REUSEADDR, (char*)&tru, sizeof(tru));
-		#endif*/
 	}
 	socket_base::socket_base(int sockfd) {
 		//std::cout << "Wrapping socket #" << sockfd << std::endl;
@@ -294,6 +297,7 @@ namespace sks {
 		m_valid = true;
 	}
 	socket_base::socket_base(socket_base&& s) {
+		//std::cout << "Swapping socket #" << s.m_sockid << " with socket #" << m_sockid << std::endl; 
 		std::swap(m_sockid, s.m_sockid);
 		m_domain = std::move(s.m_domain);
 		m_protocol = std::move(s.m_protocol);
