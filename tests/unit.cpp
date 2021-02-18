@@ -323,11 +323,7 @@ void tcp_proper_t1(int& failures, sks::domain d) {
 	if (e != 1) {
 		//std::cerr << "No incoming connection requests after 5 seconds" << std::endl;
 		
-		failures += 1;
-		failures += 4;
-		if (d != sks::unix) {
-			failures += 3;
-		}
+		failures += 8;
 		return;
 	}
 	
@@ -339,10 +335,7 @@ void tcp_proper_t1(int& failures, sks::domain d) {
 		
 		//Accept failed, we have no socket at `hc`, we cannot continue the test
 		//Assume remaining verifications all fail
-		failures += 4;
-		if (d != sks::unix) {
-			failures += 3;
-		}
+		failures += 7;
 		return;
 	}
 	
@@ -356,19 +349,16 @@ void tcp_proper_t1(int& failures, sks::domain d) {
 	failures += verify(prefix + "hc.recvfrom(...)#1 error", se, snoerr);
 	failures += verify(prefix + "hc.recvfrom(...)#1 value", data, allBytes);
 	
-	//Unix sockets are not bi-directional
-	if (d != sks::unix) {
-		::reverse(data.begin(), data.end());
+	::reverse(data.begin(), data.end());
+	
+	se = hc->sendto(data);
+	failures += verify(prefix + "hc.sendto(...) error", se, snoerr);
 		
-		se = hc->sendto(data);
-		failures += verify(prefix + "hc.sendto(...) error", se, snoerr); //"No such file or directory" is because rem_addr string is ""
-			
-		se = hc->recvfrom(data);
-		sks::serror classclosed = { sks::CLASS, sks::CLOSED };
-		failures += verify(prefix + "hc.recvfrom(...)#2 error", se, classclosed);
-		//data's value is undefined, at least for now
-		failures += verify(prefix + "hc.valid()", hc->valid(), false);
-	}
+	se = hc->recvfrom(data);
+	sks::serror classclosed = { sks::CLASS, sks::CLOSED };
+	failures += verify(prefix + "hc.recvfrom(...)#2 error", se, classclosed);
+	//data's value is undefined, at least in the current version
+	failures += verify(prefix + "hc.valid()", hc->valid(), false);
 	
 	delete hc;
 }
@@ -391,10 +381,7 @@ void tcp_proper_t2(int& failures, sks::domain d) {
 	failures += verify(prefix + "c.connect(...) wait", e, 1, false);
 	if (e != 1) {
 		//std::cerr << "No incoming connection requests after 5 seconds" << std::endl;
-		failures += 3;
-		if (d != sks::unix) {
-			failures += 2;
-		}
+		failures += 5;
 		return;
 	}
 	
@@ -406,12 +393,10 @@ void tcp_proper_t2(int& failures, sks::domain d) {
 	se = c->sendto(allBytes);
 	failures += verify(prefix + "c.sendto(...) error", se, snoerr);
 	
-	if (d != sks::unix) {
-		std::vector<uint8_t> data;
-		se = c->recvfrom(data);
-		failures += verify(prefix + "c.recvfrom(...) error", se, snoerr);
-		failures += verify(prefix + "c.recvfrom(...) data", data, allBytesReversed);
-	}
+	std::vector<uint8_t> data;
+	se = c->recvfrom(data);
+	failures += verify(prefix + "c.recvfrom(...) error", se, snoerr);
+	failures += verify(prefix + "c.recvfrom(...) data", data, allBytesReversed);
 	
 	//Close
 	delete c;
