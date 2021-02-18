@@ -166,7 +166,8 @@ static std::vector<uint8_t> allBytes;
 static std::vector<uint8_t> allBytesReversed;
 static const std::vector<sks::domain> allDomains = { sks::unix, sks::ipv4, sks::ipv6 };
 static sks::sockaddress host;
-static int hostvalid = 0; //Invalid = 0, valid = 1, will never be valid (skip) = 2
+static int hostvalid = 0; //Invalid = 0, valid = 1, will never be valid (skip) = 2 (For connection-based)
+static int sockready = 0; //How many sockets are ready (For connectionless)
 
 template <class BidirectionalIterator>
   void reverse (BidirectionalIterator first, BidirectionalIterator last)
@@ -206,10 +207,30 @@ size_t allUnitTests();
 int tcp_proper();
 void tcp_proper_t1(int&, sks::domain);
 void tcp_proper_t2(int&, sks::domain);
+/*
+ *	            #1                                #2            
+ *	          "Echo"                            Sender          
+ *	/------------------------\        /------------------------\
+ *	|                        |        |                        |
+ *	|      Construct b       |        |      Construct a       |
+ *	|                        |        |                        |
+ *	|       Show ready       |        |       Show ready       |
+ *	|                        |        |                        |
+ *	|        d = Recv        |<-------|          Send          |
+ *	|                        |        |                        |
+ *	|       reverse d        |        |                        |
+ *	|                        |        |                        |
+ *	|          Send          |------->|          Recv          |
+ *	|                        |        |                        |
+ *	|    Verify and close    |        |    Verify and close    |
+ *	|                        |        |                        |
+ *	\----------Join----------/        \----------Join----------/
+ */
+int udp_proper();
+void udp_proper_t1(int&, sks::domain);
+void udp_proper_t2(int&, sks::domain);
 void init();
 void cleanup();
-
-
 
 int main() {
 	size_t failureTotal = allUnitTests();
@@ -241,14 +262,13 @@ int main() {
 	return failureTotal;
 }
 
-
-
 size_t allUnitTests() {
 	init();
 	
 	size_t failures = 0;
 	
 	failures += tcp_proper();
+	failures += udp_proper();
 	
 	cleanup();
 	
@@ -328,7 +348,7 @@ void tcp_proper_t1(int& failures, sks::domain d) {
 	}
 	
 	try {
-		hc = new sks::socket_base(std::move(h.accept()));
+		hc = new sks::socket_base( h.accept() );
 		failures += verify(prefix + "h.accept()", norte, norte);
 	} catch (std::runtime_error& rte) {
 		failures += verify(prefix + "h.accept()", rte, norte);
@@ -402,6 +422,108 @@ void tcp_proper_t2(int& failures, sks::domain d) {
 	delete c;
 }
 
+int udp_proper() {
+	int failures = 0;
+	
+	for (sks::domain d : allDomains) {
+		sockready = 0;
+		resetverifystream();
+		
+		int t1f = 0;
+		int t2f = 0;
+		
+		std::thread t1(udp_proper_t1, std::ref(t1f), d);
+		std::thread t2(udp_proper_t2, std::ref(t2f), d);
+		
+		t1.join();
+		t2.join();
+		
+		//Report
+		if (t1f > 0 || t2f > 0) { //At least one error
+			std::cerr << tagfail << "\tudp_proper(" << sks::to_string(d) << ") failed with " << (t1f + t2f) << " errors:" << std::endl;
+			std::cerr << verifystream.str() << std::endl;
+		} else {
+			std::cout << tagok << "\tudp_proper(" << sks::to_string(d) << ") passed without errors." << std::endl;
+		}
+		
+		failures += t1f + t2f;
+	}
+	std::cout << std::endl;
+	
+	return failures;
+}
+void udp_proper_t1(int& failures, sks::domain d) {
+	int e;
+	sks::serror se;
+	std::string prefix = "udp_proper_t1(";
+	prefix += sks::to_string(d);
+	prefix += ") ";
+	
+	sks::socket_base b(d, sks::udp);
+	
+	if (d == sks::unix) {
+		unlink("./.socklib_unit_test_unix_socket_1"); //Make sure file is non-existant so we can bind successfully
+		//Bind to this
+		e = b.bind("./.socklib_unit_test_unix_socket_1");
+	} else {
+		//Bind to something
+		e = b.bind();
+	}
+	failures += verify(prefix + "b.bind()", e, 0);
+	
+	host = b.locaddr();
+	sockready++;
+	
+	while (sockready != 2) {}
+	
+	sks::packet pkt;
+	se = b.recvfrom(pkt);
+	failures += verify(prefix + "b.recvfrom(...) error", se, snoerr);
+	failures += verify(prefix + "b.recvfrom(...) data", pkt.data, allBytes);
+	
+	::reverse(pkt.data.begin(), pkt.data.end());
+	
+	se = b.sendto(pkt);
+	failures += verify(prefix + "b.sendto(...) error", se, snoerr);
+	
+	//Close
+}
+void udp_proper_t2(int& failures, sks::domain d) {
+	int e;
+	sks::serror se;
+	std::string prefix = "udp_proper_t2(";
+	prefix += sks::to_string(d);
+	prefix += ") ";
+	
+	sks::socket_base a(d, sks::udp);
+	
+	if (d == sks::unix) {
+		unlink("./.socklib_unit_test_unix_socket_2"); //Make sure file is non-existant so we can bind successfully
+		//Bind to this
+		e = a.bind("./.socklib_unit_test_unix_socket_2");
+	} else {
+		//Bind to something
+		e = a.bind();
+	}
+	failures += verify(prefix + "a.bind()", e, 0);
+	
+	sockready++;
+	
+	while (sockready != 2) {}
+	
+	sks::packet pkt;
+	pkt.rem = host;
+	pkt.data = allBytes;
+	
+	se = a.sendto(pkt);
+	failures += verify(prefix + "a.sendto(...)", se, snoerr);
+	
+	se = a.recvfrom(pkt);
+	failures += verify(prefix + "a.recvfrom(...) error", se, snoerr);
+	failures += verify(prefix + "a.recvfrom(...) data", pkt.data, allBytesReversed);
+	
+	//Close
+}
 
 
 void init() {
