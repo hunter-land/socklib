@@ -23,6 +23,7 @@ extern "C" {
 		#include <io.h>
 		#include <ioapiset.h>
 	#endif
+	#include <poll.h>
 }
 #include <stdexcept>
 
@@ -48,6 +49,10 @@ namespace sks {
 				return "udp";
 			case seq:
 				return "seq";
+			case rdm:
+				return "rdm";
+			case raw:
+				return "raw";
 			default:
 				return "";
 		}
@@ -95,6 +100,9 @@ namespace sks {
 					case CLOSED:
 						s = "Socket connection is closed";
 						break;
+					case UNBOUND:
+						s = "Socket is not bound";
+						break;
 				}
 				break;
 		}
@@ -119,7 +127,7 @@ namespace sks {
 	}
 	
 	//Converting sockaddress to sockaddr
-	sockaddr_storage satosa(const sockaddress& s) {
+	sockaddr_storage satosa(const sockaddress& s, socklen_t* saddrlen = nullptr) {
 		sockaddr_storage saddr;
 		
 		saddr.ss_family = s.d;
@@ -174,8 +182,12 @@ namespace sks {
 					sockaddr_un* a = (sockaddr_un*)&saddr;
 					
 					a->sun_path[0] = 0;
-					strncpy(a->sun_path, s.addrstring.c_str(), sizeof(a->sun_path));
-					a->sun_path[sizeof(a->sun_path) / sizeof(a->sun_path[0]) - 1] = 0; //Ensure null-termination
+					size_t n = std::min(sizeof(a->sun_path) - 1, s.addrstring.size());
+					memcpy(a->sun_path, s.addrstring.data(), n);
+					a->sun_path[n] = 0; //Ensure null-termination
+					if (saddrlen != nullptr) {
+						*saddrlen = sizeof(sa_family_t) + n;
+					}
 				}
 				break;
 		}
@@ -183,7 +195,7 @@ namespace sks {
 		return saddr;
 	}
 	//Converting sockaddr to sockaddress
-	sockaddress satosa(const sockaddr_storage* const saddr) {
+	sockaddress satosa(const sockaddr_storage* const saddr, size_t slen = sizeof(sockaddr_storage)) {
 		sockaddress s;
 		
 		s.d = (domain)saddr->ss_family;
@@ -208,7 +220,17 @@ namespace sks {
 				{
 					sockaddr_un* a = (sockaddr_un*)saddr;
 					
-					s.addrstring = a->sun_path;
+					if (slen > sizeof(sa_family_t)) {  //Socket is not unnamed (we can read sun_path)
+						//if sun_path[0] is a null-byte, the socket is an abstract type. Read n = slen - sizeof(sa_family_t) bytes
+						if (a->sun_path[0] == 0) {
+							size_t n = slen - sizeof(sa_family_t);
+							//s.addrstring.resize(n);
+							//memcpy(s.addrstring.data(), a->sun_path, n);
+							s.addrstring = std::string(a->sun_path, n);
+						} else {
+							s.addrstring = a->sun_path;
+						}
+					}
 					memset(&s.addr, 0, sizeof(s.addr));
 					s.port = 0;
 				}
@@ -437,8 +459,9 @@ namespace sks {
 		return bind(sa);
 	}
 	int socket_base::bind(sockaddress sa) {
-		sockaddr_storage saddr = satosa(sa);
-		int slen = sizeof(saddr);
+		socklen_t slen = sizeof(sockaddr_storage);
+		sockaddr_storage saddr = satosa(sa, &slen);
+		//int slen = sa.addrstring.size() + 2; //sizeof(saddr);
 		
 		if (::bind(m_sockid, (sockaddr*)&saddr, slen) == -1) {
 			return errno;
@@ -500,8 +523,8 @@ namespace sks {
 	}
 	
 	int socket_base::connect(sockaddress sa) {
-		sockaddr_storage saddr = satosa(sa);
-		socklen_t slen = sizeof(saddr);
+		socklen_t slen = sizeof(sockaddr_storage);
+		sockaddr_storage saddr = satosa(sa, &slen);
 		
 		if (::connect(m_sockid, (sockaddr*)&saddr, slen) == -1) {
 			return errno;
@@ -599,17 +622,22 @@ namespace sks {
 			}
 		}
 				
-		if (m_protocol == tcp) {
-			pkt.rem = m_rem_addr;
+		//if (m_protocol == tcp) {
+		//	pkt.rem = m_rem_addr;
+		//}
+		
+		socklen_t slen = sizeof(sockaddr_storage);
+		sockaddr_storage saddr = satosa(pkt.rem, &slen);
+		sockaddr* saddrptr = (sockaddr*)&saddr;
+		if (m_protocol == tcp || m_protocol == seq) { //Connection-based types should have a NULL address (otherwise sendto might return errors such as EISCONN)
+			saddrptr = NULL;
+			slen = 0;
 		}
 		
-		sockaddr_storage saddr = satosa(pkt.rem);
-		socklen_t slen = sizeof(saddr);
-		
 		#ifndef _WIN32
-			ssize_t br = ::sendto(m_sockid, (void*)pkt.data.data(), pkt.data.size(), flags, (sockaddr*)&saddr, slen);
+			ssize_t br = ::sendto(m_sockid, (void*)pkt.data.data(), pkt.data.size(), flags, saddrptr, slen);
 		#else
-			int br = ::sendto(m_sockid, (char*)pkt.data.data(), pkt.data.size(), flags, (sockaddr*)&saddr, slen);
+			int br = ::sendto(m_sockid, (char*)pkt.data.data(), pkt.data.size(), flags, saddrptr, slen);
 		#endif
 		
 		if (br == -1) {
@@ -646,6 +674,29 @@ namespace sks {
 		}
 		
 		return d;
+	}
+	
+	int socket_base::canread(int timeoutms) {
+		pollfd pfd;
+		pfd.fd = m_sockid;
+		pfd.events = POLLIN;
+		
+		if (poll(&pfd, 1, timeoutms) == -1) {
+			return -errno;
+		}
+		
+		return (pfd.revents & POLLIN) > 0;
+	}
+	int socket_base::canwrite(int timeoutms) {
+		pollfd pfd;
+		pfd.fd = m_sockid;
+		pfd.events = POLLOUT;
+		
+		if (poll(&pfd, 1, timeoutms) == -1) {
+			return -errno;
+		}
+		
+		return (pfd.revents & POLLOUT) > 0;
 	}
 	
 	//Pre and Post functions

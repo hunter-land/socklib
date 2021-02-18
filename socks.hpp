@@ -177,6 +177,12 @@ namespace sks {
 		//Returns the negative BSD error (if any)
 		int availdata();
 		
+		//
+		//Returns the negative BSD error (if any)
+		int canread(int timeoutms = 0);
+		//Returns the negative BSD error (if any)
+		int canwrite(int timeoutms = 0);
+		
 		//Set the pre-send function
 		void setpre(std::function<int(packet&)> f);
 		//Set the post-recv function
