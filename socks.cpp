@@ -581,7 +581,7 @@ namespace sks {
 		pkt.data.resize(br);
 		
 		//Fill out packet.rem
-		pkt.rem = satosa(&saddr);
+		pkt.rem = satosa(&saddr, slen);
 		
 		//Do post-recv function
 		if (m_postrecv != nullptr) {
@@ -621,10 +621,6 @@ namespace sks {
 				return e;
 			}
 		}
-				
-		//if (m_protocol == tcp) {
-		//	pkt.rem = m_rem_addr;
-		//}
 		
 		socklen_t slen = sizeof(sockaddr_storage);
 		sockaddr_storage saddr = satosa(pkt.rem, &slen);
@@ -723,7 +719,7 @@ namespace sks {
 			return saddr;
 		}
 		
-		m_loc_addr = satosa(&saddr);
+		m_loc_addr = satosa(&saddr, slen);
 		
 		return saddr;
 	}
@@ -736,7 +732,7 @@ namespace sks {
 			return saddr;
 		}
 		
-		m_rem_addr = satosa(&saddr);
+		m_rem_addr = satosa(&saddr, slen);
 		
 		return saddr;
 	}
