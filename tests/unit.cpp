@@ -3,10 +3,12 @@
 #include <string>
 #include <thread>
 #include <iostream>
+#include <iomanip>
 #include <vector>
 #include <cstdint>
 #include <mutex>
 #include <sstream>
+#include <fstream>
 extern "C" {
 	#include <unistd.h> //ioctl
 }
@@ -40,6 +42,10 @@ std::string format(fmt f) {
 static std::string tagfail("[\033[31mFAIL\033[0m]");
 static std::string tagok("[\033[32m OK \033[0m]");
 static std::stringstream verifystream;
+//static std::ofstream verifystream("./output.txt");
+static void resetverifystream() {
+	verifystream = std::stringstream(std::string());
+}
 static std::mutex outmutex;
 template<typename T>
 static std::string vecstring(std::vector<T> v, size_t endsize = 2) { //a b ... y z
@@ -116,7 +122,7 @@ static int verify(std::string name, std::vector<uint8_t> actual, std::vector<uin
 	
 	return match ? 0 : 1;
 }
-static int verify(std::string name, int actual, int expected) {
+static int verify(std::string name, int actual, int expected, bool areerrnos = true) {
 	bool match = actual == expected;
 	
 	report[name] = match;
@@ -125,8 +131,13 @@ static int verify(std::string name, int actual, int expected) {
 		verifystream << tagok << "\t" << name << std::endl;
 	} else {
 		verifystream << tagfail << "\t" << name << std::endl;
-		verifystream << "\tExpected " << format(yellow) << sks::errorstr(expected) << format(reset) << std::endl;
-		verifystream << "\tGot " << format(red) << sks::errorstr(actual) << format(reset) << std::endl;
+		if (areerrnos) {
+			verifystream << "\tExpected " << format(yellow) << sks::errorstr(expected) << format(reset) << std::endl;
+			verifystream << "\tGot " << format(red) << sks::errorstr(actual) << format(reset) << std::endl;
+		} else {
+			verifystream << "\tExpected " << format(yellow) << expected << format(reset) << std::endl;
+			verifystream << "\tGot " << format(red) << actual << format(reset) << std::endl;
+		}
 	}
 	outmutex.unlock();
 	
@@ -157,7 +168,16 @@ static const std::vector<sks::domain> allDomains = { sks::unix, sks::ipv4, sks::
 static sks::sockaddress host;
 static int hostvalid = 0; //Invalid = 0, valid = 1, will never be valid (skip) = 2
 
-void allUnitTests();
+template <class BidirectionalIterator>
+  void reverse (BidirectionalIterator first, BidirectionalIterator last)
+{
+  while ((first!=last)&&(first!=--last)) {
+    std::iter_swap (first,last);
+    ++first;
+  }
+}
+
+size_t allUnitTests();
 /*
  *	            #1                                #2            
  *	           Host                             Client          
@@ -192,42 +212,55 @@ void cleanup();
 
 
 int main() {
-	allUnitTests();
+	size_t failureTotal = allUnitTests();
 	
 	//Check report for failure rate
 	//Return number of failures
-	int failureTotal = 0;
+	//int failureTotal = 0;
+	size_t passedTotal = 0;
 	for (const std::pair<std::string, bool>& rpt : report) {
-		if (rpt.second == false) {
-			failureTotal++;
+		if (rpt.second == true) {
+			passedTotal++;
 		}
 	}
+	size_t reportsTotal = passedTotal + failureTotal;
+	double percentPassing = 100 - (100. * failureTotal / reportsTotal);
 	
 	std::cout << std::endl;
 	if (failureTotal == 0) {
 		std::cout << tagok << "\tAll tests passed." << std::endl;
 	} else {
-		std::cerr << tagfail << "\tTotal of " << failureTotal << " check(s) failed." << std::endl;
+		std::cerr << tagfail << "\tTotal of " << failureTotal << "/" << reportsTotal << " check(s) failed. (" << std::setprecision(2) << percentPassing << "% passing)." << std::endl;
 	}
 	std::cout << std::endl;
-		
+	
+	//Set readme badge:
+	//"https://img.shields.io/badge/Unit%20Tests-100%25-success"
+	//"https://img.shields.io/badge/Unit%20Tests-99%25-critical"
+	
 	return failureTotal;
 }
 
 
 
-void allUnitTests() {
+size_t allUnitTests() {
 	init();
 	
-	tcp_proper();
+	size_t failures = 0;
+	
+	failures += tcp_proper();
 	
 	cleanup();
+	
+	return failures;
 }
 
 int tcp_proper() {
+	int failures = 0;
+	
 	for (sks::domain d : allDomains) {		
 		hostvalid = 0;
-		verifystream = std::stringstream(std::string());
+		resetverifystream();
 		
 		int t1f = 0;
 		int t2f = 0;
@@ -245,10 +278,12 @@ int tcp_proper() {
 		} else {
 			std::cout << tagok << "\ttcp_proper(" << sks::to_string(d) << ") passed without errors." << std::endl;
 		}
+		
+		failures += t1f + t2f;
 	}
 	std::cout << std::endl;
 	
-	return 0;
+	return failures;
 }
 void tcp_proper_t1(int& failures, sks::domain d) {
 	int e;
@@ -281,6 +316,21 @@ void tcp_proper_t1(int& failures, sks::domain d) {
 	failures += verify(prefix + "h.listen()", se, snoerr);
 	
 	sks::socket_base* hc = nullptr;
+	
+	//We wait 5 seconds for a connection attempt, and rule the test as a failure if we get none
+	e = h.canread(5000);
+	failures += verify(prefix + "h.listen() wait", e, 1, false);
+	if (e != 1) {
+		//std::cerr << "No incoming connection requests after 5 seconds" << std::endl;
+		
+		failures += 1;
+		failures += 4;
+		if (d != sks::unix) {
+			failures += 3;
+		}
+		return;
+	}
+	
 	try {
 		hc = new sks::socket_base(std::move(h.accept()));
 		failures += verify(prefix + "h.accept()", norte, norte);
@@ -308,7 +358,7 @@ void tcp_proper_t1(int& failures, sks::domain d) {
 	
 	//Unix sockets are not bi-directional
 	if (d != sks::unix) {
-		std::reverse(data.begin(), data.end());
+		::reverse(data.begin(), data.end());
 		
 		se = hc->sendto(data);
 		failures += verify(prefix + "hc.sendto(...) error", se, snoerr); //"No such file or directory" is because rem_addr string is ""
@@ -335,6 +385,18 @@ void tcp_proper_t2(int& failures, sks::domain d) {
 	
 	e = c->connect(host);
 	failures += verify(prefix + "c.connect(...)", e, 0);
+	
+	//We wait 5 seconds for the accept() call, and rule the test as a failure if it takes more than 5 seconds
+	e = c->canwrite(5000);
+	failures += verify(prefix + "c.connect(...) wait", e, 1, false);
+	if (e != 1) {
+		//std::cerr << "No incoming connection requests after 5 seconds" << std::endl;
+		failures += 3;
+		if (d != sks::unix) {
+			failures += 2;
+		}
+		return;
+	}
 	
 	e = c->setrxtimeout(5000000); //microseconds
 	failures += verify(prefix + "c.setrxtimeout(5s)", e, 0);
