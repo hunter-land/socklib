@@ -10,7 +10,11 @@
 #include <sstream>
 #include <fstream>
 extern "C" {
-	#include <unistd.h> //ioctl
+	#ifndef _WIN32	
+		#include <unistd.h> //ioctl
+	#else
+		#define UNLINK(x) DeleteFile(x)
+	#endif
 }
 
 static std::map<std::string, bool> report;
@@ -40,11 +44,17 @@ std::string format(fmt f) {
 	return s;
 }
 static std::string tagfail("[\033[31mFAIL\033[0m]");
+static std::string tagnote("[\033[36mNOTE\033[0m]");
 static std::string tagok("[\033[32m OK \033[0m]");
 static std::stringstream verifystream;
 //static std::ofstream verifystream("./output.txt");
+//#define verifystream std::cerr
 static void resetverifystream() {
 	verifystream = std::stringstream(std::string());
+}
+static std::string verifystreamstring() {
+	//return "";
+	return verifystream.str();
 }
 static std::mutex outmutex;
 template<typename T>
@@ -233,6 +243,19 @@ void init();
 void cleanup();
 
 int main() {
+
+	#ifdef _WIN32
+		WSADATA wsaData;
+		int iResult;
+
+		// Initialize Winsock
+		iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+		if (iResult != 0) {
+			printf("WSAStartup failed: %d\n", iResult);
+			return 1;
+		}
+	#endif
+
 	size_t failureTotal = allUnitTests();
 	
 	//Check report for failure rate
@@ -294,7 +317,7 @@ int tcp_proper() {
 		//Report
 		if (t1f > 0 || t2f > 0) { //At least one error
 			std::cerr << tagfail << "\ttcp_proper(" << sks::to_string(d) << ") failed with " << (t1f + t2f) << " errors:" << std::endl;
-			std::cerr << verifystream.str() << std::endl;
+			std::cerr << verifystreamstring() << std::endl;
 		} else {
 			std::cout << tagok << "\ttcp_proper(" << sks::to_string(d) << ") passed without errors." << std::endl;
 		}
@@ -315,9 +338,9 @@ void tcp_proper_t1(int& failures, sks::domain d) {
 	sks::socket_base h(d, sks::tcp); //Construct h
 	
 	if (d == sks::unix) {
-		unlink("./.socklib_unit_test_unix_socket"); //Make sure file is non-existant so we can bind successfully
+		unlink("sks_utest_unix.sock"); //Make sure file is non-existant so we can bind successfully
 		//Bind to this
-		e = h.bind("./.socklib_unit_test_unix_socket");
+		e = h.bind("sks_utest_unix.sock");
 	} else {
 		//Bind to something
 		e = h.bind();
@@ -356,6 +379,9 @@ void tcp_proper_t1(int& failures, sks::domain d) {
 		//Accept failed, we have no socket at `hc`, we cannot continue the test
 		//Assume remaining verifications all fail
 		failures += 7;
+
+		delete hc;
+
 		return;
 	}
 	
@@ -392,13 +418,17 @@ void tcp_proper_t2(int& failures, sks::domain d) {
 	sks::socket_base* c = new sks::socket_base(d, sks::tcp);
 	
 	while(hostvalid == 0) {} //Wait for host to bind and set connection data
+	if (hostvalid == 2) {
+		failures += 7;
+		return;
+	}
 	
 	e = c->connect(host);
 	failures += verify(prefix + "c.connect(...)", e, 0);
 	
 	//We wait 5 seconds for the accept() call, and rule the test as a failure if it takes more than 5 seconds
 	e = c->canwrite(5000);
-	failures += verify(prefix + "c.connect(...) wait", e, 1, false);
+	failures += verify(prefix + "c.canwrite(...) wait", e, 1, false);
 	if (e != 1) {
 		//std::cerr << "No incoming connection requests after 5 seconds" << std::endl;
 		failures += 5;
@@ -431,6 +461,14 @@ int udp_proper() {
 		
 		int t1f = 0;
 		int t2f = 0;
+
+#ifdef _WIN32
+		if (d == sks::unix) {
+			// UDP UNIX not supported on windows(At least yet, but lets be honest with ourselves)
+			std::cout << tagnote << "\tUnix UDP sockets are not supported on this platform. Skipping." << std::endl;
+			continue;
+		}
+#endif
 		
 		std::thread t1(udp_proper_t1, std::ref(t1f), d);
 		std::thread t2(udp_proper_t2, std::ref(t2f), d);
@@ -441,7 +479,7 @@ int udp_proper() {
 		//Report
 		if (t1f > 0 || t2f > 0) { //At least one error
 			std::cerr << tagfail << "\tudp_proper(" << sks::to_string(d) << ") failed with " << (t1f + t2f) << " errors:" << std::endl;
-			std::cerr << verifystream.str() << std::endl;
+			std::cerr << verifystreamstring() << std::endl;
 		} else {
 			std::cout << tagok << "\tudp_proper(" << sks::to_string(d) << ") passed without errors." << std::endl;
 		}
@@ -476,6 +514,11 @@ void udp_proper_t1(int& failures, sks::domain d) {
 	
 	while (sockready != 2) {}
 	
+	e = b.setrxtimeout(5000000); //microseconds
+	failures += verify(prefix + "b.setrxtimeout(5s)", e, 0);
+	e = b.settxtimeout(5000000); //microseconds
+	failures += verify(prefix + "b.settxtimeout(5s)", e, 0);
+	
 	sks::packet pkt;
 	se = b.recvfrom(pkt);
 	failures += verify(prefix + "b.recvfrom(...) error", se, snoerr);
@@ -484,7 +527,12 @@ void udp_proper_t1(int& failures, sks::domain d) {
 	::reverse(pkt.data.begin(), pkt.data.end());
 	
 	se = b.sendto(pkt);
+	//std::cout << "b @ " << b.locaddr().addrstring << " port = " << b.locaddr().port << "; sending to a @ " << pkt.rem.addrstring << " port = " << pkt.rem.port << std::endl;
 	failures += verify(prefix + "b.sendto(...) error", se, snoerr);
+	
+	sockready--;
+	
+	while (sockready != 0) {}
 	
 	//Close
 }
@@ -511,16 +559,26 @@ void udp_proper_t2(int& failures, sks::domain d) {
 	
 	while (sockready != 2) {}
 	
+	e = a.setrxtimeout(5000000); //microseconds
+	failures += verify(prefix + "a.setrxtimeout(5s)", e, 0);
+	e = a.settxtimeout(5000000); //microseconds
+	failures += verify(prefix + "a.settxtimeout(5s)", e, 0);
+	
 	sks::packet pkt;
 	pkt.rem = host;
 	pkt.data = allBytes;
 	
 	se = a.sendto(pkt);
 	failures += verify(prefix + "a.sendto(...)", se, snoerr);
+	//std::cout << "a @ " << a.locaddr().addrstring << " port = " << a.locaddr().port << "; sending to b @ " << pkt.rem.addrstring << " port = " << pkt.rem.port << std::endl;
 	
 	se = a.recvfrom(pkt);
 	failures += verify(prefix + "a.recvfrom(...) error", se, snoerr);
 	failures += verify(prefix + "a.recvfrom(...) data", pkt.data, allBytesReversed);
+	
+	sockready--;
+	
+	while (sockready != 0) {}
 	
 	//Close
 }
