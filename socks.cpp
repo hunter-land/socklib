@@ -3,6 +3,8 @@ extern "C" {
 	#ifndef _WIN32
 		#include <sys/socket.h>
 	#else
+		//#define NOMINMAX //This doesn't even work
+		#define WIN32_LEAN_AND_MEAN //I hate this macro name; its not the 90s anymore
 		#include <winsock2.h>
 	#endif
 	
@@ -23,8 +25,14 @@ extern "C" {
 		#include <ws2tcpip.h> //should have inet_pton but only does sometimes: Schrödinger's header
 		#include <io.h>
 		#include <ioapiset.h>
+		#include <afunix.h>
+		#undef max //Haha, windows still sucks
+		#undef min
+		#define sa_family_t ADDRESS_FAMILY
+		#define errno WSAGetLastError() //As "recommended" by windows
 	#endif
 }
+#include <algorithm>
 #include <stdexcept>
 
 namespace sks {
@@ -67,7 +75,15 @@ namespace sks {
 			char* errstr = strerror(e);
 		#else
 			char errstr[256];
-			strerror_s(errstr, 256, e);
+			//strerror_s(errstr, 256, e);
+
+			wchar_t *ws = NULL;
+			FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+				NULL, e,
+				MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+				(LPWSTR)&ws, 0, NULL);
+			snprintf(errstr, 256, "%S", ws);
+			LocalFree(ws);
 		#endif
 		s = errstr;
 		return s;
@@ -129,6 +145,7 @@ namespace sks {
 	//Converting sockaddress to sockaddr
 	sockaddr_storage satosa(const sockaddress& s, socklen_t* saddrlen = nullptr) {
 		sockaddr_storage saddr;
+		memset(&saddr, 0, sizeof(saddr));
 		
 		saddr.ss_family = s.d;
 		switch (s.d) {
@@ -137,6 +154,7 @@ namespace sks {
 					sockaddr_in* a = (sockaddr_in*)&saddr;
 					
 					memcpy(&a->sin_addr, s.addr, sizeof(a->sin_addr));
+					//a->sin_addr.s_addr = htonl(a->sin_addr.s_addr);
 					
 					bool addrzero = true;
 					for (size_t i = 0; i < sizeof(s.addr) && i < sizeof(a->sin_addr) && addrzero; i++) {
@@ -151,7 +169,7 @@ namespace sks {
 						}
 					}
 					
-					a->sin_port = ntohs( s.port );
+					a->sin_port = htons( s.port );
 					
 					//Set address length
 					if (saddrlen != nullptr) {
@@ -164,6 +182,7 @@ namespace sks {
 					sockaddr_in6* a = (sockaddr_in6*)&saddr;
 					
 					memcpy(&a->sin6_addr, s.addr, sizeof(a->sin6_addr));
+					//HtoN not needed for ipv6
 					
 					bool addrzero = true;
 					for (size_t i = 0; i < sizeof(s.addr) && i < sizeof(a->sin6_addr) && addrzero; i++) {
@@ -175,11 +194,10 @@ namespace sks {
 							inet_pton( s.d, s.addrstring.c_str(), &a->sin6_addr );
 						} else {
 							a->sin6_addr = in6addr_any;
-							//a->sin6_addr = IN6ADDR_ANY_INIT;
 						}
 					}
 					
-					a->sin6_port = ntohs( s.port );
+					a->sin6_port = htons( s.port );
 					
 					//Set address length
 					if (saddrlen != nullptr) {
@@ -217,6 +235,7 @@ namespace sks {
 					sockaddr_in* a = (sockaddr_in*)saddr;
 					
 					memcpy(s.addr, &a->sin_addr, sizeof(a->sin_addr));
+					//a->sin_addr.s_addr = ntohl(a->sin_addr.s_addr);
 					s.port = ntohs( a->sin_port );
 				}
 				break;
@@ -225,6 +244,7 @@ namespace sks {
 					sockaddr_in6* a = (sockaddr_in6*)saddr;
 					
 					memcpy(s.addr, &a->sin6_addr, sizeof(a->sin6_addr));
+					//NtoH not needed for ipv6
 					s.port = ntohs( a->sin6_port );
 				}
 				break;
@@ -249,7 +269,7 @@ namespace sks {
 				break;
 		}
 		
-		size_t addrstrlen = std::max(INET6_ADDRSTRLEN, INET_ADDRSTRLEN);
+		const size_t addrstrlen = std::max(INET6_ADDRSTRLEN, INET_ADDRSTRLEN);
 		char addrstr[addrstrlen];
 		const char* e = inet_ntop(s.d, &s.addr, addrstr, addrstrlen);
 		if (e != nullptr) {
@@ -257,6 +277,27 @@ namespace sks {
 		}
 		
 		return s;
+	}
+	//Change `any` addresses to a `loopback` equivalent (0.0.0.0 -> 127.0.0.1)
+	void anytoloop(sockaddr_storage& saddr) {
+		switch (saddr.ss_family) {
+			case ipv4:
+				{
+					sockaddr_in* a = (sockaddr_in*)&saddr;
+					if (a->sin_addr.s_addr == INADDR_ANY) {
+						a->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+					}
+				}
+				break;
+			case ipv6:
+				{
+					sockaddr_in6* a = (sockaddr_in6*)&saddr;
+					if (memcmp(&a->sin6_addr, &in6addr_any, sizeof(a->sin6_addr)) == 0) {
+						a->sin6_addr = in6addr_loopback;
+					}
+				}
+				break;
+		}
 	}
 	
 	//Constructors and destructors
@@ -324,7 +365,7 @@ namespace sks {
 			close(m_sockid);
 		#else //Whatever-this-is, for windows people
 			if (m_sockid >= 0) { //Windows decided to throw an exception if you try to close an invalid/already-closed fd, so thats cool
-				_close(m_sockid);
+				closesocket(m_sockid);
 			}
 		#endif
 		if (m_domain == unix) {
@@ -465,7 +506,6 @@ namespace sks {
 	int socket_base::bind(sockaddress sa) {
 		socklen_t slen = sizeof(sockaddr_storage);
 		sockaddr_storage saddr = satosa(sa, &slen);
-		//int slen = sa.addrstring.size() + 2; //sizeof(saddr);
 		
 		if (::bind(m_sockid, (sockaddr*)&saddr, slen) == -1) {
 			return errno;
@@ -529,6 +569,8 @@ namespace sks {
 	int socket_base::connect(sockaddress sa) {
 		socklen_t slen = sizeof(sockaddr_storage);
 		sockaddr_storage saddr = satosa(sa, &slen);
+
+		anytoloop(saddr);
 		
 		if (::connect(m_sockid, (sockaddr*)&saddr, slen) == -1) {
 			return errno;
@@ -628,6 +670,8 @@ namespace sks {
 		
 		socklen_t slen = sizeof(sockaddr_storage);
 		sockaddr_storage saddr = satosa(pkt.rem, &slen);
+		anytoloop(saddr);
+		//std::cout << "Converted any to loop in sendto" << std::endl;
 		sockaddr* saddrptr = (sockaddr*)&saddr;
 		if (m_protocol == tcp || m_protocol == seq) { //Connection-based types should have a NULL address (otherwise sendto might return errors such as EISCONN)
 			saddrptr = NULL;
@@ -681,9 +725,15 @@ namespace sks {
 		pfd.fd = m_sockid;
 		pfd.events = POLLIN;
 		
-		if (poll(&pfd, 1, timeoutms) == -1) {
-			return -errno;
-		}
+		#ifndef _WIN32
+			if (poll(&pfd, 1, timeoutms) == -1) { //>0 = success, 0 = timeout, -1 = error
+				return -errno;
+			}
+		#else
+			if (WSAPoll(&pfd, 1, timeoutms) == SOCKET_ERROR) { //>0 = success, 0 = timeout, SOCKET_ERROR = error
+				return -WSAGetLastError();
+			}
+		#endif
 		
 		return (pfd.revents & POLLIN) > 0;
 	}
@@ -692,9 +742,15 @@ namespace sks {
 		pfd.fd = m_sockid;
 		pfd.events = POLLOUT;
 		
-		if (poll(&pfd, 1, timeoutms) == -1) {
-			return -errno;
-		}
+		#ifndef _WIN32
+			if (poll(&pfd, 1, timeoutms) == -1) { //>0 = success, 0 = timeout, -1 = error
+				return -errno;
+			}
+		#else
+			if (WSAPoll(&pfd, 1, timeoutms) == SOCKET_ERROR) { //>0 = success, 0 = timeout, SOCKET_ERROR = error
+				return -WSAGetLastError();
+			}
+		#endif
 		
 		return (pfd.revents & POLLOUT) > 0;
 	}

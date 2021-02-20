@@ -59,7 +59,7 @@ namespace sks {
 		sockaddress();
 		
 		domain d;
-		uint8_t addr[16];
+		uint8_t addr[16]; //Network byte order
 		std::string addrstring = "";
 		unsigned short port = 0;
 	};
