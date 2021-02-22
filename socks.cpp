@@ -521,6 +521,7 @@ namespace sks {
 	
 	serror socket_base::listen(int backlog) {
 		serror e;
+		e.type = CLASS;
 		e.erno = 0;
 		
 		if (!m_bound) {
@@ -585,6 +586,7 @@ namespace sks {
 	//Data handling functions
 	serror socket_base::recvfrom(packet& pkt, int flags, uint32_t n) {
 		serror e;
+		e.type = CLASS;
 		e.erno = 0;
 		
 		if (m_valid == false || n == 0) {
@@ -599,6 +601,7 @@ namespace sks {
 		
 		sockaddr_storage saddr;
 		socklen_t slen = sizeof(saddr);
+		memset(&saddr, 0, slen);
 		pkt.data.resize(n);
 		//uint8_t buf[n]; //0x100
 		
@@ -650,6 +653,7 @@ namespace sks {
 	}
 	serror socket_base::sendto(packet pkt, int flags) {
 		serror e;
+		e.type = CLASS;
 		e.erno = 0;
 		
 		if (m_valid == false) {
@@ -695,6 +699,7 @@ namespace sks {
 	serror socket_base::sendto(std::vector<uint8_t> data, int flags) {
 		packet pkt;
 		pkt.data = data;
+		pkt.rem = m_rem_addr;
 		return sendto(pkt, flags);
 	}
 	bool socket_base::valid() {
