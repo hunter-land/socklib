@@ -4,9 +4,6 @@ CSTD = c17
 
 build : $(objects)
 
-main : $(objects) main.o
-	$(CXX) -Werror -Wextra -Wall -std=$(CXXSTD) $(CXXFLAGS) -o main main.o $(objects)
-
 %.o : %.cpp
 	$(CXX) -Werror -Wextra -Wall -std=$(CXXSTD) $(CXXFLAGS) -c $^ -o $@
 %.o : %.c
