@@ -9,6 +9,7 @@
 #include <mutex>
 #include <sstream>
 #include <fstream>
+#include <functional>
 extern "C" {
 	#ifndef _WIN32	
 		#include <unistd.h> //ioctl
@@ -50,7 +51,7 @@ static std::stringstream verifystream;
 //static std::ofstream verifystream("./output.txt");
 //#define verifystream std::cerr
 static void resetverifystream() {
-	verifystream = std::stringstream(std::string());
+	verifystream.str("");// = std::stringstream(std::string());
 }
 static std::string verifystreamstring() {
 	//return "";
@@ -175,6 +176,7 @@ static const std::runtime_error norte("NONE");
 static std::vector<uint8_t> allBytes;
 static std::vector<uint8_t> allBytesReversed;
 static const std::vector<sks::domain> allDomains = { sks::unix, sks::ipv4, sks::ipv6 };
+static const std::vector<sks::protocol> allProtocols = { sks::tcp, sks::udp, sks::seq, sks::rdm };
 static sks::sockaddress host;
 static int hostvalid = 0; //Invalid = 0, valid = 1, will never be valid (skip) = 2 (For connection-based)
 static int sockready = 0; //How many sockets are ready (For connectionless)
@@ -186,6 +188,15 @@ template <class BidirectionalIterator>
     std::iter_swap (first,last);
     ++first;
   }
+}
+static std::vector<std::string> split(std::string line, std::string delim) {
+	std::vector<std::string> splitVector;
+	while (line.find(delim) < line.length()) {
+		splitVector.push_back(line.substr(0, line.find(delim)));
+		line = line.substr(line.find(delim) + delim.length(), line.length() - line.find(delim) - delim.length());
+	}
+	splitVector.push_back(line);
+	return splitVector;
 }
 
 size_t allUnitTests();
@@ -214,7 +225,7 @@ size_t allUnitTests();
  *	|                        |        |                        |
  *	\----------Join----------/        \----------Join----------/
  */
-int tcp_proper();
+int tcp_proper(sks::domain);
 void tcp_proper_t1(int&, sks::domain);
 void tcp_proper_t2(int&, sks::domain);
 /*
@@ -236,13 +247,42 @@ void tcp_proper_t2(int&, sks::domain);
  *	|                        |        |                        |
  *	\----------Join----------/        \----------Join----------/
  */
-int udp_proper();
+int udp_proper(sks::domain);
 void udp_proper_t1(int&, sks::domain);
 void udp_proper_t2(int&, sks::domain);
+
 void init();
+int proper(sks::domain, sks::protocol);
 void cleanup();
 
-int main() {
+sks::domain strtodom(std::string s) {
+	if (s == "unix") {
+		return sks::unix;
+	} else if (s == "ipv4") {
+		return sks::ipv4;
+	} else if (s == "ipv6") {
+		return sks::ipv6;
+	} else {
+		return (sks::domain)0;
+	}
+}
+sks::protocol strtopro(std::string s) {
+	if (s == "tcp") {
+		return sks::tcp;
+	} else if (s == "udp") {
+		return sks::udp;
+	} else if (s == "seq") {
+		return sks::seq;
+	} else if (s == "rdm") {
+		return sks::rdm;
+	} else if (s == "raw") {
+		return sks::raw;
+	} else {
+		return (sks::protocol)0;
+	}
+}
+
+int main(int argc, char** argv) {
 
 	#ifdef _WIN32
 		WSADATA wsaData;
@@ -255,8 +295,80 @@ int main() {
 			return 1;
 		}
 	#endif
-
-	size_t failureTotal = allUnitTests();
+	
+	size_t failureTotal = 0;
+	std::vector<std::function<int()>> tests;
+	//Parse inputs
+	for (int i = 1; i < argc; i++) {
+		//std::cout << argv[i] << std::endl;
+		std::string arg(argv[i]);
+		if (arg[0] == '-') {
+			//Is option or flag
+		} else {
+			//Is test to be ran
+			size_t opi = arg.find('-'); //Domain start index
+			size_t cpi = arg.find('-', opi + 1); //Domain end index and protocol start index
+			
+			//Get test
+			std::string tname = arg.substr(0, opi); //Test name
+			std::function<int(sks::domain, sks::protocol)> t;
+			if (tname == "proper") {
+				t = proper;
+			} else {
+				std::cerr << "Unknown test \"" << tname << "\"" << std::endl;
+				return 1;
+			}
+			//Get domains
+			std::vector<sks::domain> domains; //Domains to cycle through
+			for (std::string& s : split(arg.substr(opi + 1, cpi - opi - 1), ",")) {
+				if (s.size() == 0) {
+					continue;
+				}
+				sks::domain d = strtodom(s);
+				if (d != 0) {
+					domains.push_back(d);
+				} else {
+					std::cerr << "Unknown domain \"" << s << "\"" << std::endl;
+					return 1;
+				}
+			}
+			//Get protocols
+			std::vector<sks::protocol> protocols; //Protocols to cycle through
+			for (std::string& s : split(arg.substr(cpi), ",")) {
+				if (s.size() == 0) {
+					continue;
+				}
+				sks::protocol p = strtopro(s);
+				if (p != 0) {
+					protocols.push_back(p);
+				} else {
+					std::cerr << "Unknown protocol \"" << s << "\"" << std::endl;
+					return 1;
+				}
+			}
+			
+			//For each domain
+			for (sks::domain d : domains) {
+				//For each protocol for each domain
+				for (sks::protocol p : protocols) {
+					tests.push_back(std::bind(t, d, p));
+				}
+			}
+		}
+	}
+	
+	//Run all tests we were asked to
+	init();
+	if (tests.size() == 0) {
+		//Default to all
+		failureTotal = allUnitTests();
+	} else {
+		//Do every test we were asked for
+		for (std::function<int()>& t : tests) {
+			failureTotal += t();
+		}
+	}
+	cleanup();
 	
 	//Check report for failure rate
 	//Return number of failures
@@ -274,7 +386,8 @@ int main() {
 	if (failureTotal == 0) {
 		std::cout << tagok << "\tAll tests passed." << std::endl;
 	} else {
-		std::cerr << tagfail << "\tTotal of " << failureTotal << "/" << reportsTotal << " check(s) failed. (" << std::setprecision(2) << percentPassing << "% passing)." << std::endl;
+		std::cerr << tagfail << "\tTotal of " << failureTotal << "/" << reportsTotal << " check(s) failed." << std::endl;
+		std::cerr << "\t(" << std::setprecision(2) << percentPassing << "% passing)." << std::endl;
 	}
 	std::cout << std::endl;
 	
@@ -285,48 +398,33 @@ int main() {
 	return failureTotal;
 }
 
-size_t allUnitTests() {
-	init();
-	
+size_t allUnitTests() {	
 	size_t failures = 0;
 	
-	failures += tcp_proper();
-	failures += udp_proper();
-	
-	cleanup();
+	for (sks::domain d : allDomains) {
+		for (sks::protocol p : allProtocols) {
+			failures += proper(d, p);
+		}
+		std::cout << std::endl;
+	}
 	
 	return failures;
 }
 
-int tcp_proper() {
-	int failures = 0;
+int tcp_proper(sks::domain d) {	
+	hostvalid = 0;
+	resetverifystream();
 	
-	for (sks::domain d : allDomains) {		
-		hostvalid = 0;
-		resetverifystream();
-		
-		int t1f = 0;
-		int t2f = 0;
-		
-		std::thread t1(tcp_proper_t1, std::ref(t1f), d);
-		std::thread t2(tcp_proper_t2, std::ref(t2f), d);
-		
-		t1.join();
-		t2.join();
-		
-		//Report
-		if (t1f > 0 || t2f > 0) { //At least one error
-			std::cerr << tagfail << "\ttcp_proper(" << sks::to_string(d) << ") failed with " << (t1f + t2f) << " errors:" << std::endl;
-			std::cerr << verifystreamstring() << std::endl;
-		} else {
-			std::cout << tagok << "\ttcp_proper(" << sks::to_string(d) << ") passed without errors." << std::endl;
-		}
-		
-		failures += t1f + t2f;
-	}
-	std::cout << std::endl;
+	int t1f = 0;
+	int t2f = 0;
 	
-	return failures;
+	std::thread t1(tcp_proper_t1, std::ref(t1f), d);
+	std::thread t2(tcp_proper_t2, std::ref(t2f), d);
+	
+	t1.join();
+	t2.join();
+	
+	return t1f + t2f;
 }
 void tcp_proper_t1(int& failures, sks::domain d) {
 	int e;
@@ -452,43 +550,28 @@ void tcp_proper_t2(int& failures, sks::domain d) {
 	delete c;
 }
 
-int udp_proper() {
-	int failures = 0;
+int udp_proper(sks::domain d) {
+	sockready = 0;
+	resetverifystream();
 	
-	for (sks::domain d : allDomains) {
-		sockready = 0;
-		resetverifystream();
-		
-		int t1f = 0;
-		int t2f = 0;
-
-#ifdef _WIN32
+	int t1f = 0;
+	int t2f = 0;
+	
+	#ifdef _WIN32
 		if (d == sks::unix) {
 			// UDP UNIX not supported on windows(At least yet, but lets be honest with ourselves)
 			std::cout << tagnote << "\tUnix UDP sockets are not supported on this platform. Skipping." << std::endl;
 			continue;
 		}
-#endif
-		
-		std::thread t1(udp_proper_t1, std::ref(t1f), d);
-		std::thread t2(udp_proper_t2, std::ref(t2f), d);
-		
-		t1.join();
-		t2.join();
-		
-		//Report
-		if (t1f > 0 || t2f > 0) { //At least one error
-			std::cerr << tagfail << "\tudp_proper(" << sks::to_string(d) << ") failed with " << (t1f + t2f) << " errors:" << std::endl;
-			std::cerr << verifystreamstring() << std::endl;
-		} else {
-			std::cout << tagok << "\tudp_proper(" << sks::to_string(d) << ") passed without errors." << std::endl;
-		}
-		
-		failures += t1f + t2f;
-	}
-	std::cout << std::endl;
+	#endif
 	
-	return failures;
+	std::thread t1(udp_proper_t1, std::ref(t1f), d);
+	std::thread t2(udp_proper_t2, std::ref(t2f), d);
+	
+	t1.join();
+	t2.join();
+	
+	return t1f + t2f;
 }
 void udp_proper_t1(int& failures, sks::domain d) {
 	int e;
@@ -589,6 +672,32 @@ void init() {
 		allBytes.push_back(i);
 		allBytesReversed.push_back(UINT8_MAX - i);
 	}
+}
+int proper(sks::domain d, sks::protocol p) {
+	int failures;
+	switch (p) {
+		case sks::tcp:
+		case sks::seq:
+			failures = tcp_proper(d);
+			break;
+		case sks::udp:
+		case sks::rdm:
+			failures = udp_proper(d);
+			break;
+		default:
+			std::cerr << tagnote << "\tproper(" << sks::to_string(p) << ", " << sks::to_string(d) << ") cannot be run with " << sks::to_string(p) << " protocol." << std::endl;
+			return 0;
+	}
+	
+	//Report
+	if (failures > 0) { //At least one error
+		std::cerr << tagfail << "\tproper(" << sks::to_string(p) << ", " << sks::to_string(d) << ") failed with " << failures << " errors:" << std::endl;
+		std::cerr << verifystreamstring() << std::endl;
+	} else {
+		std::cout << tagok << "\tproper(" << sks::to_string(p) << ", " << sks::to_string(d) << ") passed without errors." << std::endl;
+	}
+	
+	return failures;
 }
 void cleanup() {
 	
