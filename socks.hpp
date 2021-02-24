@@ -2,6 +2,7 @@
 extern "C" {
 	#ifndef _WIN32 //POSIX, for normal people
 		#include <sys/socket.h>
+		#include <netinet/in.h> //for IPV6_V6ONLY option and others
 	#else //Whatever-this-is, for windows people
 		#include <winsock2.h>
 	#endif
