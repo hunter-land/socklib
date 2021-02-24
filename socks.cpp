@@ -65,6 +65,18 @@ namespace sks {
 				return "";
 		}
 	}
+	bool connectionless(protocol p) {
+		switch (p) {
+			case tcp:
+			case seq:
+				return false;
+			case udp:
+			case rdm:
+			case raw:
+			default:
+				return true;
+		}
+	}
 	std::string to_string(sockaddress sa) {
 		return sa.addrstring + (sa.port != 0 ? (std::string(":") + std::to_string(sa.port)) : "");
 	}
@@ -90,6 +102,9 @@ namespace sks {
 	}
 	std::string errorstr(serror e) {
 		std::string s;
+		if (e.erno == 0) {
+			return errorstr(0);
+		}
 		
 		switch (e.type) {
 			case BSD:
@@ -102,6 +117,9 @@ namespace sks {
 						break;
 					case BADPRR:
 						s = "Bad Post-Receive function return (!=0)";
+						break;
+					default:
+						s = "Unknown user error";
 						break;
 				}
 				break;
@@ -119,7 +137,16 @@ namespace sks {
 					case UNBOUND:
 						s = "Socket is not bound";
 						break;
+					case OPTTYPE:
+						s = "Type does not match option's type";
+						break;
+					default:
+						s = "Unknown class error";
+						break;
 				}
+				break;
+			default:
+				s = "Unkown error type";
 				break;
 		}
 		
@@ -335,7 +362,7 @@ namespace sks {
 		
 		m_domain = (domain)saddr.ss_family;
 		
-		m_valid = true;
+		m_valid = true; //TODO: Check, not assume
 	}
 	socket_base::socket_base(socket_base&& s) {
 		//std::cout << "Swapping socket #" << s.m_sockid << " with socket #" << m_sockid << std::endl; 
@@ -373,6 +400,7 @@ namespace sks {
 		}
 	}
 	
+	//Local and remote addresses
 	sockaddress socket_base::locaddr() {
 		return m_loc_addr;
 	}
@@ -380,6 +408,7 @@ namespace sks {
 		return m_rem_addr;
 	}
 	
+	//Options
 	int socket_base::setbroadcastoption(bool b) {
 		#ifndef _WIN32 //POSIX, for normal people
 			int r = setsockopt(m_sockid, SOL_SOCKET, SO_BROADCAST, (int*)&b, sizeof(b));
@@ -417,6 +446,40 @@ namespace sks {
 			getsockopt(m_sockid, SOL_SOCKET, SO_KEEPALIVE, (char*)&b, &len);
 		#endif
 		return b;
+	}
+	serror socket_base::setoption(sks::option o, int value, int level) {
+		serror se;
+		se.type = BSD;
+		se.erno = 0;
+		
+		#ifndef _WIN32 //POSIX, for normal people
+			se.erno = setsockopt(0, level, o, (int*)&value, sizeof(value));
+		#else //Whatever-this-is, for windows people
+			se.erno = setsockopt(m_sockid, level, o, (char*)&value, sizeof(value));
+		#endif
+		
+		return se;
+	}
+	int socket_base::getoption(sks::option o, serror* se, int level) {
+		serror* see = se;
+		if (se == nullptr) {
+			see = new serror;
+		}
+		see->type = BSD;
+		
+		int v;
+		socklen_t vlen = sizeof(v);
+		#ifndef _WIN32 //POSIX, for normal people
+			see->erno = getsockopt(0, level, o, (int*)&v, &vlen);
+		#else //Whatever-this-is, for windows people
+			see->erno = getsockopt(m_sockid, level, o, (char*)&v, &vlen);
+		#endif
+		
+		if (se == nullptr) {
+			delete see;
+		}
+		
+		return v;
 	}
 	
 	//Timeout values
@@ -471,6 +534,7 @@ namespace sks {
 		return m_txto;
 	}
 	
+	//Setup
 	int socket_base::bind() {
 		sockaddress sa;
 		sa.d = m_domain;
@@ -511,14 +575,13 @@ namespace sks {
 			return errno;
 		} else {
 			setlocinfo();
-			if (m_protocol == udp) {
+			if (connectionless(m_protocol)) {
 				m_valid = true;
 			}
 			m_bound = true;
 			return 0;
 		}
 	}
-	
 	serror socket_base::listen(int backlog) {
 		serror e;
 		e.type = CLASS;
@@ -539,7 +602,6 @@ namespace sks {
 			return e;
 		}
 	}
-	
 	socket_base socket_base::accept() {
 		if (m_listening == false) {
 			//If we are not listening, we are unable to accept a connection
@@ -566,7 +628,6 @@ namespace sks {
 		s.setpost(post());
 		return s;
 	}
-	
 	int socket_base::connect(sockaddress sa) {
 		socklen_t slen = sizeof(sockaddr_storage);
 		sockaddr_storage saddr = satosa(sa, &slen);
@@ -579,6 +640,7 @@ namespace sks {
 		
 		setlocinfo();
 		setreminfo();
+		
 		m_valid = true;
 		return 0;
 	}
@@ -632,9 +694,13 @@ namespace sks {
 		//Fill out packet.rem
 		pkt.rem = satosa(&saddr, slen);
 		
-		//Do post-recv function
-		if (m_postrecv != nullptr) {
-			int r = m_postrecv(pkt);
+		//Do post-recv function(s)
+		for (auto it = m_postrecv.rbegin(); it != m_postrecv.rend(); it++) {
+			if (it->second == nullptr) {
+				continue;
+			}
+			
+			int r = it->second(pkt);
 			if (r != 0) {
 				//User's program has returned an error code
 				e.type = USER;
@@ -662,8 +728,13 @@ namespace sks {
 			return e;
 		}
 		
-		if (m_presend != nullptr) {
-			int r = m_presend(pkt);
+		//Do pre-send function(s)
+		for (auto it = m_presend.begin(); it != m_presend.end(); it++) {
+			if (it->second == nullptr) {
+				continue;
+			}
+			
+			int r = it->second(pkt);
 			if (r != 0) {
 				//Failure; Abort
 				e.type = USER;
@@ -677,7 +748,7 @@ namespace sks {
 		anytoloop(saddr);
 		//std::cout << "Converted any to loop in sendto" << std::endl;
 		sockaddr* saddrptr = (sockaddr*)&saddr;
-		if (m_protocol == tcp || m_protocol == seq) { //Connection-based types should have a NULL address (otherwise sendto might return errors such as EISCONN)
+		if (!connectionless(m_protocol)) { //Connected sockets should have a NULL address (otherwise sendto *might* return errors such as EISCONN)
 			saddrptr = NULL;
 			slen = 0;
 		}
@@ -702,6 +773,8 @@ namespace sks {
 		pkt.rem = m_rem_addr;
 		return sendto(pkt, flags);
 	}
+	
+	//Checks
 	bool socket_base::valid() {
 		return m_valid;
 	}
@@ -724,7 +797,6 @@ namespace sks {
 		
 		return d;
 	}
-	
 	int socket_base::canread(int timeoutms) {
 		pollfd pfd;
 		pfd.fd = m_sockid;
@@ -761,20 +833,21 @@ namespace sks {
 	}
 	
 	//Pre and Post functions
-	void socket_base::setpre(std::function<int(packet&)> f) {
-		m_presend = f;
+	void socket_base::setpre(std::function<int(packet&)> f, size_t index) {
+		m_presend[index] = f;
 	}
-	void socket_base::setpost(std::function<int(packet&)> f) {
-		m_postrecv = f;
+	void socket_base::setpost(std::function<int(packet&)> f, size_t index) {
+		m_postrecv[index] = f;
 	}
-	std::function<int(packet&)> socket_base::pre() {
-		return m_presend;
+	std::function<int(packet&)> socket_base::pre(size_t index) {
+		return m_presend[index];
 	}
-	std::function<int(packet&)> socket_base::post() {
-		return m_postrecv;
+	std::function<int(packet&)> socket_base::post(size_t index) {
+		return m_postrecv[index];
 	}
 	
-	//Protected functions:
+//Protected functions:
+	//Local and remote addresses
 	sockaddr_storage socket_base::setlocinfo() {
 		sockaddr_storage saddr;
 		socklen_t slen = sizeof(saddr);

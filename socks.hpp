@@ -8,6 +8,7 @@ extern "C" {
 }
 #include <string>
 #include <vector>
+#include <map>
 #include <functional>
 #include <chrono>
 
@@ -27,9 +28,22 @@ namespace sks {
 	};
 	std::string to_string(protocol p);
 	enum option {
-		broadcast = SO_BROADCAST,
-		keepalive = SO_KEEPALIVE
+		broadcast = SO_BROADCAST,	//bool
+		keepalive = SO_KEEPALIVE,	//bool
+		ipv6only = IPV6_V6ONLY,		//bool
+		listening = SO_ACCEPTCONN,	//bool
+		debug = SO_DEBUG,			//bool
+		noroute = SO_DONTROUTE,		//bool
+		oobil = SO_OOBINLINE, 		//bool
+		reuseaddr = SO_REUSEADDR,	//bool
+		//reuseport = SO_REUSEPORT,	//bool
+		error = SO_ERROR			//int
 	};
+	//Notes of functions to add
+	// Get domain
+	// Get protocol/type
+	// Get (sub-)protocol
+	// Check cmsg(3) for packet timestamp info
 	
 	enum errortype { //Error type/source
 		BSD, //C-Socket error (errno)
@@ -40,8 +54,10 @@ namespace sks {
 		NOBYTES = 1, //Variable has no data
 		INVALID, //Socket is in invalid state
 		CLOSED, //Connection has been closed proper
-		UNBOUND //Socket was not bound when it should have been
+		UNBOUND, //Socket was not bound when it should have been
+		OPTTYPE //option selection does not match data type
 	};
+	//TODO: Fix and update
 	enum usererrors { //User error
 		BADPSR = 1, //Non-zero return of pre-send
 		BADPRR //Non-zero return of post-recv
@@ -56,7 +72,7 @@ namespace sks {
 	std::string errorstr(errortype e);
 	
 	struct sockaddress {
-		sockaddress();
+		sockaddress(); //Zeros the addr[] field
 		
 		domain d;
 		uint8_t addr[16]; //Network byte order
@@ -74,23 +90,24 @@ namespace sks {
 	
 	class socket_base {
 	protected:
-		int m_sockid = -1;
-		domain m_domain;
-		protocol m_protocol;
-		bool m_valid = false;
-		bool m_listening = false;
-		bool m_bound = false;
-		sockaddress m_loc_addr;
-		sockaddress m_rem_addr;
+		int m_sockid = -1; //Socket fd value
+		domain m_domain; //Domain of this socket
+		protocol m_protocol; //Type of this socket
+		int m_p; //Specific protocol of this socket
+		bool m_valid = false; //Is socket connected (connected protos), bound (connection-less protos), or listening (connected protos)
+		bool m_listening = false; //Is socket listening (connected protocols only)
+		bool m_bound = false; //Is socket bound (explicitly only; not from connect(...) calls)
+		sockaddress m_loc_addr; //Socket's local address
+		sockaddress m_rem_addr; //Socket's remote/peer address
 		
-		std::function<int(packet&)> m_presend = nullptr;
-		std::function<int(packet&)> m_postrecv = nullptr;
+		std::map<size_t, std::function<int(packet&)>> m_presend; //Function(s) to call in ascending order before sending a packet
+		std::map<size_t, std::function<int(packet&)>> m_postrecv; //Function(s) to call in descending order after receiving a packet
 		
-		std::chrono::microseconds m_rxto = std::chrono::microseconds(0);
-		std::chrono::microseconds m_txto = std::chrono::microseconds(0);
+		std::chrono::microseconds m_rxto = std::chrono::microseconds(0); //RX timeout
+		std::chrono::microseconds m_txto = std::chrono::microseconds(0); //TX timeout
 		
-		sockaddr_storage setlocinfo();
-		sockaddr_storage setreminfo();
+		sockaddr_storage setlocinfo(); //Update m_loc_addr
+		sockaddr_storage setreminfo(); //Update m_rem_addr
 	public:
 		//Create a new socket
 		socket_base(domain d, protocol t = protocol::tcp, int p = 0);
@@ -121,6 +138,11 @@ namespace sks {
 		int setkeepaliveoption(bool b);
 		//Get keepalive
 		bool keepaliveoption();
+		//Set given option
+		//Returns error (if any)
+		serror setoption(option o, int value, int level = SOL_SOCKET);
+		//Get given option
+		int getoption(option o, serror* e = nullptr, int level = SOL_SOCKET);
 		
 		//Set RX timeout
 		//Returns BSD error (if any)
@@ -150,46 +172,40 @@ namespace sks {
 		//Bind to given socket address
 		//Returns BSD error (if any)
 		int bind(sockaddress sa);
-		
 		//Start listening to connection requests
 		serror listen(int backlog = 0xFF);
-		
 		//Accept pending connection request (from listen(...))
 		//Returns connected socket
 		socket_base accept();
-		
 		//Connect to remote socket
 		//Returns BSD error (if any)
 		int connect(sockaddress sa);
 		
-		//Read bytes from socket (tcp)
-		//std::vector<uint8_t> read(size_t n = SIZE_MAX);
-		//Read bytes from socket (tcp/udp)
+		//Read bytes from socket
 		//n should be equal to or larger than expected data
 		serror recvfrom(packet& pkt, int flags = 0, uint32_t n = 0x2000); //0x400 = 1KB, 0x100000 = 1MB, 0x40000000, = 1GB, 0x800000 = 8MB
 		serror recvfrom(std::vector<uint8_t>& data, int flags = 0, uint32_t n = 0x2000);
 		//Send bytes
 		serror sendto(packet pkt, int flags = 0);
 		serror sendto(std::vector<uint8_t> data, int flags = 0);
+		
 		//Is this socket able to send data
 		bool valid();
 		//How many bytes are available to be read (negative for error)
 		//Returns the negative BSD error (if any)
 		int availdata();
-		
-		//
 		//Returns the negative BSD error (if any)
 		int canread(int timeoutms = 0);
 		//Returns the negative BSD error (if any)
 		int canwrite(int timeoutms = 0);
 		
 		//Set the pre-send function
-		void setpre(std::function<int(packet&)> f);
+		void setpre(std::function<int(packet&)> f, size_t index = 0);
 		//Set the post-recv function
-		void setpost(std::function<int(packet&)> f);
+		void setpost(std::function<int(packet&)> f, size_t index = 0);
 		//Set the pre-send function
-		std::function<int(packet&)> pre();
+		std::function<int(packet&)> pre(size_t index = 0);
 		//Set the post-recv function
-		std::function<int(packet&)> post();
+		std::function<int(packet&)> post(size_t index = 0);
 	};
 };
