@@ -176,7 +176,7 @@ static const std::runtime_error norte("NONE");
 static std::vector<uint8_t> allBytes;
 static std::vector<uint8_t> allBytesReversed;
 static const std::vector<sks::domain> allDomains = { sks::unix, sks::ipv4, sks::ipv6 };
-static const std::vector<sks::protocol> allProtocols = { sks::tcp, sks::udp, sks::seq, sks::rdm };
+static const std::vector<sks::protocol> allProtocols = { sks::tcp, sks::udp, sks::seq, sks::rdm, sks::raw };
 static sks::sockaddress host;
 static int hostvalid = 0; //Invalid = 0, valid = 1, will never be valid (skip) = 2 (For connection-based)
 static int sockready = 0; //How many sockets are ready (For connectionless)
@@ -197,6 +197,11 @@ static std::vector<std::string> split(std::string line, std::string delim) {
 	}
 	splitVector.push_back(line);
 	return splitVector;
+}
+
+int reversePkt(sks::packet& pkt) {
+	::reverse(pkt.data.begin(), pkt.data.end());
+	return 0; //Function can't fail
 }
 
 size_t allUnitTests();
@@ -225,9 +230,9 @@ size_t allUnitTests();
  *	|                        |        |                        |
  *	\----------Join----------/        \----------Join----------/
  */
-int tcp_proper(sks::domain);
-void tcp_proper_t1(int&, sks::domain);
-void tcp_proper_t2(int&, sks::domain);
+int con_proper(sks::domain);
+void con_proper_t1(int&, sks::domain);
+void con_proper_t2(int&, sks::domain);
 /*
  *	            #1                                #2            
  *	          "Echo"                            Sender          
@@ -247,9 +252,9 @@ void tcp_proper_t2(int&, sks::domain);
  *	|                        |        |                        |
  *	\----------Join----------/        \----------Join----------/
  */
-int udp_proper(sks::domain);
-void udp_proper_t1(int&, sks::domain);
-void udp_proper_t2(int&, sks::domain);
+int conl_proper(sks::domain);
+void conl_proper_t1(int&, sks::domain);
+void conl_proper_t2(int&, sks::domain);
 
 void init();
 int proper(sks::domain, sks::protocol);
@@ -284,7 +289,7 @@ sks::protocol strtopro(std::string s) {
 
 int main(int argc, char** argv) {
 
-	#ifdef _WIN32
+	#ifdef _WIN32 //Imagine needing global initialization to be explicitly called by main because you have no way to even check if it has been called prior
 		WSADATA wsaData;
 		int iResult;
 
@@ -358,7 +363,9 @@ int main(int argc, char** argv) {
 	}
 	
 	//Run all tests we were asked to
+	//std::cout << "Initializing." << std::endl;
 	init();
+	//std::cout << "Starting tests." << std::endl;
 	if (tests.size() == 0) {
 		//Default to all
 		failureTotal = allUnitTests();
@@ -368,7 +375,9 @@ int main(int argc, char** argv) {
 			failureTotal += t();
 		}
 	}
+	//std::cout << "Finished." << std::endl;
 	cleanup();
+	//std::cout << "Cleaning up." << std::endl;
 	
 	//Check report for failure rate
 	//Return number of failures
@@ -411,22 +420,23 @@ size_t allUnitTests() {
 	return failures;
 }
 
-int tcp_proper(sks::domain d) {	
+//Connected socket communications without any expected errors
+int con_proper(sks::domain d) {	
 	hostvalid = 0;
 	resetverifystream();
 	
 	int t1f = 0;
 	int t2f = 0;
 	
-	std::thread t1(tcp_proper_t1, std::ref(t1f), d);
-	std::thread t2(tcp_proper_t2, std::ref(t2f), d);
+	std::thread t1(con_proper_t1, std::ref(t1f), d);
+	std::thread t2(con_proper_t2, std::ref(t2f), d);
 	
 	t1.join();
 	t2.join();
 	
 	return t1f + t2f;
 }
-void tcp_proper_t1(int& failures, sks::domain d) {
+void con_proper_t1(int& failures, sks::domain d) {
 	int e;
 	sks::serror se;
 	std::string prefix = "tcp_proper_t1(";
@@ -483,6 +493,8 @@ void tcp_proper_t1(int& failures, sks::domain d) {
 		return;
 	}
 	
+	hc->setpre(reversePkt); //Cannot fail, no check needed (but we *do* need to still verify it worked on client)
+	
 	e = hc->setrxtimeout(5000000); //microseconds
 	failures += verify(prefix + "hc.setrxtimeout(5s)", e, 0);
 	e = hc->settxtimeout(5000000); //microseconds
@@ -492,8 +504,6 @@ void tcp_proper_t1(int& failures, sks::domain d) {
 	se = hc->recvfrom(data);
 	failures += verify(prefix + "hc.recvfrom(...)#1 error", se, snoerr);
 	failures += verify(prefix + "hc.recvfrom(...)#1 value", data, allBytes);
-	
-	::reverse(data.begin(), data.end());
 	
 	se = hc->sendto(data);
 	failures += verify(prefix + "hc.sendto(...) error", se, snoerr);
@@ -506,7 +516,7 @@ void tcp_proper_t1(int& failures, sks::domain d) {
 	
 	delete hc;
 }
-void tcp_proper_t2(int& failures, sks::domain d) {
+void con_proper_t2(int& failures, sks::domain d) {
 	int e;
 	sks::serror se;
 	std::string prefix = "tcp_proper_t2(";
@@ -550,7 +560,8 @@ void tcp_proper_t2(int& failures, sks::domain d) {
 	delete c;
 }
 
-int udp_proper(sks::domain d) {
+//Connection-less socket communications without any expected errors
+int conl_proper(sks::domain d) {
 	sockready = 0;
 	resetverifystream();
 	
@@ -565,15 +576,15 @@ int udp_proper(sks::domain d) {
 		}
 	#endif
 	
-	std::thread t1(udp_proper_t1, std::ref(t1f), d);
-	std::thread t2(udp_proper_t2, std::ref(t2f), d);
+	std::thread t1(conl_proper_t1, std::ref(t1f), d);
+	std::thread t2(conl_proper_t2, std::ref(t2f), d);
 	
 	t1.join();
 	t2.join();
 	
 	return t1f + t2f;
 }
-void udp_proper_t1(int& failures, sks::domain d) {
+void conl_proper_t1(int& failures, sks::domain d) {
 	int e;
 	sks::serror se;
 	std::string prefix = "udp_proper_t1(";
@@ -597,6 +608,8 @@ void udp_proper_t1(int& failures, sks::domain d) {
 	
 	while (sockready != 2) {}
 	
+	b.setpre(reversePkt); //Cannot fail; no verify; still need to verify it worked on client recvfrom
+	
 	e = b.setrxtimeout(5000000); //microseconds
 	failures += verify(prefix + "b.setrxtimeout(5s)", e, 0);
 	e = b.settxtimeout(5000000); //microseconds
@@ -606,8 +619,6 @@ void udp_proper_t1(int& failures, sks::domain d) {
 	se = b.recvfrom(pkt);
 	failures += verify(prefix + "b.recvfrom(...) error", se, snoerr);
 	failures += verify(prefix + "b.recvfrom(...) data", pkt.data, allBytes);
-	
-	::reverse(pkt.data.begin(), pkt.data.end());
 	
 	se = b.sendto(pkt);
 	//std::cout << "b @ " << b.locaddr().addrstring << " port = " << b.locaddr().port << "; sending to a @ " << pkt.rem.addrstring << " port = " << pkt.rem.port << std::endl;
@@ -619,7 +630,7 @@ void udp_proper_t1(int& failures, sks::domain d) {
 	
 	//Close
 }
-void udp_proper_t2(int& failures, sks::domain d) {
+void conl_proper_t2(int& failures, sks::domain d) {
 	int e;
 	sks::serror se;
 	std::string prefix = "udp_proper_t2(";
@@ -675,14 +686,16 @@ void init() {
 }
 int proper(sks::domain d, sks::protocol p) {
 	int failures;
+	//Run either con_proper(...) or conl_proper(...) based on if protocol is connected or connection-less
 	switch (p) {
 		case sks::tcp:
 		case sks::seq:
-			failures = tcp_proper(d);
+			failures = con_proper(d);
 			break;
 		case sks::udp:
 		case sks::rdm:
-			failures = udp_proper(d);
+		case sks::raw:
+			failures = conl_proper(d);
 			break;
 		default:
 			std::cerr << tagnote << "\tproper(" << sks::to_string(p) << ", " << sks::to_string(d) << ") cannot be run with " << sks::to_string(p) << " protocol." << std::endl;
