@@ -1,5 +1,6 @@
 #include "socks.hpp"
 extern "C" {
+	//Sockets
 	#ifndef _WIN32
 		#include <sys/socket.h>
 	#else
@@ -12,6 +13,7 @@ extern "C" {
 	#include <string.h> //strerror
 	#include <sys/types.h> //sockopt
 	
+	//Socket related/helpers
 	#ifndef _WIN32
 		#include <netinet/in.h> //sockaddr_in
 		#include <sys/un.h> //sockaddr_un
@@ -140,6 +142,9 @@ namespace sks {
 					case OPTTYPE:
 						s = "Type does not match option's type";
 						break;
+					case NOLISTEN:
+						s = "Socket is not listening";
+						break;
 					default:
 						s = "Unknown class error";
 						break;
@@ -243,7 +248,8 @@ namespace sks {
 					
 					//Set address length
 					if (saddrlen != nullptr) {
-						*saddrlen = sizeof(sa_family_t) + n;
+						//*saddrlen = sizeof(sa_family_t) + n;
+						*saddrlen = sizeof(*a);
 					}
 				}
 				break;
@@ -336,7 +342,7 @@ namespace sks {
 			//throw exception here
 			std::string msg("Failed to construct socket: ");
 			msg += errorstr(errno);
-			throw std::runtime_error(msg);
+			throw sks::runtime_error(msg, serror{BSD, errno});
 		}
 		//std::cout << "Created socket #" << m_sockid << std::endl;
 	}
@@ -409,44 +415,6 @@ namespace sks {
 	}
 	
 	//Options
-	int socket_base::setbroadcastoption(bool b) {
-		#ifndef _WIN32 //POSIX, for normal people
-			int r = setsockopt(m_sockid, SOL_SOCKET, SO_BROADCAST, (int*)&b, sizeof(b));
-		#else //Whatever-this-is, for windows people
-			int r = setsockopt(m_sockid, SOL_SOCKET, SO_BROADCAST, (char*)&b, sizeof(b));
-		#endif
-		
-		return r;
-	}
-	bool socket_base::broadcastoption() {
-		bool b;
-		socklen_t len = sizeof(b);
-		#ifndef _WIN32 //POSIX, for normal people
-			getsockopt(m_sockid, SOL_SOCKET, SO_BROADCAST, (int*)&b, &len);
-		#else //Whatever-this-is, for windows people
-			getsockopt(m_sockid, SOL_SOCKET, SO_BROADCAST, (char*)&b, &len);
-		#endif
-		return b;
-	}
-	int socket_base::setkeepaliveoption(bool b) {
-		#ifndef _WIN32 //POSIX, for normal people
-			int r = setsockopt(m_sockid, SOL_SOCKET, SO_KEEPALIVE, (int*)&b, sizeof(b));
-		#else //Whatever-this-is, for windows people
-			int r = setsockopt(m_sockid, SOL_SOCKET, SO_KEEPALIVE, (char*)&b, sizeof(b));
-		#endif
-		
-		return r;
-	}
-	bool socket_base::keepaliveoption() {
-		bool b;
-		socklen_t len = sizeof(b);
-		#ifndef _WIN32 //POSIX, for normal people
-			getsockopt(m_sockid, SOL_SOCKET, SO_KEEPALIVE, (int*)&b, &len);
-		#else //Whatever-this-is, for windows people
-			getsockopt(m_sockid, SOL_SOCKET, SO_KEEPALIVE, (char*)&b, &len);
-		#endif
-		return b;
-	}
 	serror socket_base::setoption(sks::option o, int value, int level) {
 		serror se;
 		se.type = BSD;
@@ -610,7 +578,7 @@ namespace sks {
 			std::string msg("socket_base@");
 			msg += std::to_string((uintptr_t)this);
 			msg += " is not a listener.";
-			throw std::runtime_error(msg);
+			throw sks::runtime_error(msg, serror{ CLASS, NOLISTEN });
 		}
 		sockaddr_storage saddr;
 		socklen_t saddrlen = sizeof(saddr);
@@ -621,7 +589,7 @@ namespace sks {
 			//We must error
 			std::string msg("Failed to accept connection: ");
 			msg += errorstr(errno);
-			throw std::runtime_error(msg);
+			throw sks::runtime_error(msg, serror{ BSD, errno });
 		}
 		socket_base s(newsockid);
 		s.setpre(pre());
@@ -873,5 +841,17 @@ namespace sks {
 		m_rem_addr = satosa(&saddr, slen);
 		
 		return saddr;
+	}
+
+
+
+
+
+
+	runtime_error::runtime_error(const char* str, serror e) : std::runtime_error(str) {
+		se = e;
+	}
+	runtime_error::runtime_error(std::string str, serror e) : std::runtime_error(str) {
+		se = e;
 	}
 }

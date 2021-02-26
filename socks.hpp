@@ -5,6 +5,7 @@ extern "C" {
 		#include <netinet/in.h> //for IPV6_V6ONLY option and others
 	#else //Whatever-this-is, for windows people
 		#include <winsock2.h>
+		#include <netioapi.h> //for IPV6_V6ONLY option
 	#endif
 }
 #include <string>
@@ -12,6 +13,7 @@ extern "C" {
 #include <map>
 #include <functional>
 #include <chrono>
+#include <stdexcept>
 
 namespace sks {
 	enum domain {
@@ -28,6 +30,7 @@ namespace sks {
 		raw = SOCK_RAW
 	};
 	std::string to_string(protocol p);
+	bool connectionless(protocol p); //Check if a type/protocol is connected or connectionless
 	enum option {
 		broadcast = SO_BROADCAST,	//bool
 		keepalive = SO_KEEPALIVE,	//bool
@@ -37,7 +40,6 @@ namespace sks {
 		noroute = SO_DONTROUTE,		//bool
 		oobil = SO_OOBINLINE, 		//bool
 		reuseaddr = SO_REUSEADDR,	//bool
-		//reuseport = SO_REUSEPORT,	//bool
 		error = SO_ERROR			//int
 	};
 	//Notes of functions to add
@@ -56,7 +58,8 @@ namespace sks {
 		INVALID, //Socket is in invalid state
 		CLOSED, //Connection has been closed proper
 		UNBOUND, //Socket was not bound when it should have been
-		OPTTYPE //option selection does not match data type
+		OPTTYPE, //option selection does not match data type
+		NOLISTEN //Socket is not a listener when trying to accept
 	};
 	//TODO: Fix and update
 	enum usererrors { //User error
@@ -120,7 +123,7 @@ namespace sks {
 		//Close and deconstruct socket
 		~socket_base();
 		
-		//This object is non-copyable (Would terminate connection in process)
+		//This object is non-copyable (Would terminate connection in process due to deconstructor)
 		socket_base( const socket_base& ) = delete; //No copy constructor
 		socket_base& operator=( const socket_base& ) = delete; //No copy assignment
 		
@@ -129,16 +132,6 @@ namespace sks {
 		//Get remote address
 		sockaddress remaddr();
 		
-		//Set broadcast option
-		//Returns BSD error (if any)
-		int setbroadcastoption(bool b);
-		//Get broadcast option
-		bool broadcastoption();
-		//Set keepalive
-		//Returns BSD error (if any)
-		int setkeepaliveoption(bool b);
-		//Get keepalive
-		bool keepaliveoption();
 		//Set given option
 		//Returns error (if any)
 		serror setoption(option o, int value, int level = SOL_SOCKET);
@@ -208,5 +201,12 @@ namespace sks {
 		std::function<int(packet&)> pre(size_t index = 0);
 		//Set the post-recv function
 		std::function<int(packet&)> post(size_t index = 0);
+	};
+
+	class runtime_error : public std::runtime_error {
+	public:
+		serror se;
+		runtime_error(const char* str, serror e);
+		runtime_error(std::string str, serror e);
 	};
 };
