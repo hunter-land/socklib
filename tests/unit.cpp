@@ -11,6 +11,7 @@
 #include <fstream>
 #include <functional>
 extern "C" {
+	#include <string.h> //memcmp
 	#ifndef _WIN32	
 		#include <unistd.h> //ioctl
 	#else
@@ -102,7 +103,7 @@ static int verify(std::string name, T actual, T expected) {
 	return match ? 0 : 1;
 }
 static int verify(std::string name, sks::serror actual, sks::serror expected) {
-	bool match = (actual.type == expected.type && actual.erno == expected.erno) || (actual.erno == 0 && expected.erno == 0);
+	bool match = (actual.erno == 0 && expected.erno == 0) || (actual.type == expected.type && actual.erno == expected.erno);
 	
 	report[name] = match;
 	outmutex.lock();
@@ -154,8 +155,8 @@ static int verify(std::string name, int actual, int expected, bool areerrnos = t
 	
 	return match ? 0 : 1;
 }
-static int verify(std::string name, const std::runtime_error& actual, const std::runtime_error& expected) {
-	bool match = actual.what() == expected.what();
+static int verify(std::string name, const sks::runtime_error& actual, const sks::runtime_error& expected) {
+	bool match = actual.what() == expected.what() && memcmp(&actual.se, &expected.se, sizeof(actual.se)) == 0;
 	
 	report[name] = match;
 	outmutex.lock();
@@ -171,7 +172,7 @@ static int verify(std::string name, const std::runtime_error& actual, const std:
 	return match ? 0 : 1;
 }
 static const sks::serror snoerr = { sks::BSD, 0 };
-static const std::runtime_error norte("NONE");
+static const sks::runtime_error norte(sks::errorstr(0), snoerr);
 
 static std::vector<uint8_t> allBytes;
 static std::vector<uint8_t> allBytesReversed;
@@ -230,9 +231,9 @@ size_t allUnitTests();
  *	|                        |        |                        |
  *	\----------Join----------/        \----------Join----------/
  */
-int con_proper(sks::domain);
-void con_proper_t1(int&, sks::domain);
-void con_proper_t2(int&, sks::domain);
+int con_proper(sks::domain, sks::protocol);
+void con_proper_t1(int&, sks::domain, sks::protocol);
+void con_proper_t2(int&, sks::domain, sks::protocol);
 /*
  *	            #1                                #2            
  *	          "Echo"                            Sender          
@@ -252,9 +253,9 @@ void con_proper_t2(int&, sks::domain);
  *	|                        |        |                        |
  *	\----------Join----------/        \----------Join----------/
  */
-int conl_proper(sks::domain);
-void conl_proper_t1(int&, sks::domain);
-void conl_proper_t2(int&, sks::domain);
+int conl_proper(sks::domain, sks::protocol);
+void conl_proper_t1(int&, sks::domain, sks::protocol);
+void conl_proper_t2(int&, sks::domain, sks::protocol);
 
 void init();
 int proper(sks::domain, sks::protocol);
@@ -289,7 +290,8 @@ sks::protocol strtopro(std::string s) {
 
 int main(int argc, char** argv) {
 
-	#ifdef _WIN32 //Imagine needing global initialization to be explicitly called by main because you have no way to even check if it has been called prior
+	//Imagine needing global initialization to be explicitly called by main because you have no way to even check if it has been called prior
+	#ifdef _WIN32
 		WSADATA wsaData;
 		int iResult;
 
@@ -421,29 +423,44 @@ size_t allUnitTests() {
 }
 
 //Connected socket communications without any expected errors
-int con_proper(sks::domain d) {	
+int con_proper(sks::domain d, sks::protocol p) {	
 	hostvalid = 0;
 	resetverifystream();
 	
 	int t1f = 0;
 	int t2f = 0;
+
+	bool supported = false;
+	try {
+		sks::socket_base checksock(d, p);
+		supported = true;
+	} catch (sks::runtime_error& e) {
+		if (e.se.erno == 10047) {
+			std::cout << tagnote << "\t" << sks::to_string(d) << " " << sks::to_string(p) << " sockets are not supported on this platform. Skipping." << std::endl;
+			return -1;
+		}
+	}
 	
-	std::thread t1(con_proper_t1, std::ref(t1f), d);
-	std::thread t2(con_proper_t2, std::ref(t2f), d);
-	
-	t1.join();
-	t2.join();
+	if (supported) {
+		std::thread t1(con_proper_t1, std::ref(t1f), d, p);
+		std::thread t2(con_proper_t2, std::ref(t2f), d, p);
+
+		t1.join();
+		t2.join();
+	}
 	
 	return t1f + t2f;
 }
-void con_proper_t1(int& failures, sks::domain d) {
+void con_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 	int e;
 	sks::serror se;
 	std::string prefix = "tcp_proper_t1(";
 	prefix += sks::to_string(d);
+	prefix += ", ";
+	prefix += sks::to_string(p);
 	prefix += ") ";
 	
-	sks::socket_base h(d, sks::tcp); //Construct h
+	sks::socket_base h(d, p); //Construct h
 	
 	if (d == sks::unix) {
 		unlink("sks_utest_unix.sock"); //Make sure file is non-existant so we can bind successfully
@@ -481,7 +498,7 @@ void con_proper_t1(int& failures, sks::domain d) {
 	try {
 		hc = new sks::socket_base( h.accept() );
 		failures += verify(prefix + "h.accept()", norte, norte);
-	} catch (std::runtime_error& rte) {
+	} catch (sks::runtime_error& rte) {
 		failures += verify(prefix + "h.accept()", rte, norte);
 		
 		//Accept failed, we have no socket at `hc`, we cannot continue the test
@@ -516,14 +533,16 @@ void con_proper_t1(int& failures, sks::domain d) {
 	
 	delete hc;
 }
-void con_proper_t2(int& failures, sks::domain d) {
+void con_proper_t2(int& failures, sks::domain d, sks::protocol p) {
 	int e;
 	sks::serror se;
 	std::string prefix = "tcp_proper_t2(";
 	prefix += sks::to_string(d);
+	prefix += ", ";
+	prefix += sks::to_string(p);
 	prefix += ") ";
 	
-	sks::socket_base* c = new sks::socket_base(d, sks::tcp);
+	sks::socket_base* c = new sks::socket_base(d, p);
 	
 	while(hostvalid == 0) {} //Wait for host to bind and set connection data
 	if (hostvalid == 2) {
@@ -561,119 +580,131 @@ void con_proper_t2(int& failures, sks::domain d) {
 }
 
 //Connection-less socket communications without any expected errors
-int conl_proper(sks::domain d) {
+int conl_proper(sks::domain d, sks::protocol p) {
 	sockready = 0;
 	resetverifystream();
 	
 	int t1f = 0;
 	int t2f = 0;
 	
-	#ifdef _WIN32
-		if (d == sks::unix) {
-			// UDP UNIX not supported on windows(At least yet, but lets be honest with ourselves)
-			std::cout << tagnote << "\tUnix UDP sockets are not supported on this platform. Skipping." << std::endl;
-			continue;
+	bool supported = false;
+	try {
+		sks::socket_base checksock(d, p);
+		supported = true;
+	}
+	catch (sks::runtime_error& e) {
+		if (e.se.erno == 10047) {
+			std::cout << tagnote << "\t" << sks::to_string(d) << " " << sks::to_string(p) << " sockets are not supported on this platform. Skipping." << std::endl;
+			return -1;
 		}
-	#endif
+	}
 	
-	std::thread t1(conl_proper_t1, std::ref(t1f), d);
-	std::thread t2(conl_proper_t2, std::ref(t2f), d);
-	
-	t1.join();
-	t2.join();
+	if (supported) {
+		std::thread t1(conl_proper_t1, std::ref(t1f), d, p);
+		std::thread t2(conl_proper_t2, std::ref(t2f), d, p);
+
+		t1.join();
+		t2.join();
+	}
 	
 	return t1f + t2f;
 }
-void conl_proper_t1(int& failures, sks::domain d) {
+void conl_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 	int e;
 	sks::serror se;
 	std::string prefix = "udp_proper_t1(";
 	prefix += sks::to_string(d);
+	prefix += ", ";
+	prefix += sks::to_string(p);
 	prefix += ") ";
-	
-	sks::socket_base b(d, sks::udp);
-	
+
+	sks::socket_base b(d, p);
+
 	if (d == sks::unix) {
 		unlink("./.socklib_unit_test_unix_socket_1"); //Make sure file is non-existant so we can bind successfully
 		//Bind to this
 		e = b.bind("./.socklib_unit_test_unix_socket_1");
-	} else {
+	}
+	else {
 		//Bind to something
 		e = b.bind();
 	}
 	failures += verify(prefix + "b.bind()", e, 0);
-	
+
 	host = b.locaddr();
 	sockready++;
-	
+
 	while (sockready != 2) {}
-	
+
 	b.setpre(reversePkt); //Cannot fail; no verify; still need to verify it worked on client recvfrom
-	
+
 	e = b.setrxtimeout(5000000); //microseconds
 	failures += verify(prefix + "b.setrxtimeout(5s)", e, 0);
 	e = b.settxtimeout(5000000); //microseconds
 	failures += verify(prefix + "b.settxtimeout(5s)", e, 0);
-	
+
 	sks::packet pkt;
 	se = b.recvfrom(pkt);
 	failures += verify(prefix + "b.recvfrom(...) error", se, snoerr);
 	failures += verify(prefix + "b.recvfrom(...) data", pkt.data, allBytes);
-	
+
 	se = b.sendto(pkt);
 	//std::cout << "b @ " << b.locaddr().addrstring << " port = " << b.locaddr().port << "; sending to a @ " << pkt.rem.addrstring << " port = " << pkt.rem.port << std::endl;
 	failures += verify(prefix + "b.sendto(...) error", se, snoerr);
-	
+
 	sockready--;
-	
+
 	while (sockready != 0) {}
-	
+
 	//Close
 }
-void conl_proper_t2(int& failures, sks::domain d) {
+void conl_proper_t2(int& failures, sks::domain d, sks::protocol p) {
 	int e;
 	sks::serror se;
 	std::string prefix = "udp_proper_t2(";
 	prefix += sks::to_string(d);
+	prefix += ", ";
+	prefix += sks::to_string(p);
 	prefix += ") ";
-	
-	sks::socket_base a(d, sks::udp);
-	
+
+	sks::socket_base a(d, p);
+
 	if (d == sks::unix) {
 		unlink("./.socklib_unit_test_unix_socket_2"); //Make sure file is non-existant so we can bind successfully
 		//Bind to this
 		e = a.bind("./.socklib_unit_test_unix_socket_2");
-	} else {
+	}
+	else {
 		//Bind to something
 		e = a.bind();
 	}
 	failures += verify(prefix + "a.bind()", e, 0);
-	
+
 	sockready++;
-	
+
 	while (sockready != 2) {}
-	
+
 	e = a.setrxtimeout(5000000); //microseconds
 	failures += verify(prefix + "a.setrxtimeout(5s)", e, 0);
 	e = a.settxtimeout(5000000); //microseconds
 	failures += verify(prefix + "a.settxtimeout(5s)", e, 0);
-	
+
 	sks::packet pkt;
 	pkt.rem = host;
 	pkt.data = allBytes;
-	
+
 	se = a.sendto(pkt);
 	failures += verify(prefix + "a.sendto(...)", se, snoerr);
 	//std::cout << "a @ " << a.locaddr().addrstring << " port = " << a.locaddr().port << "; sending to b @ " << pkt.rem.addrstring << " port = " << pkt.rem.port << std::endl;
-	
+
 	se = a.recvfrom(pkt);
 	failures += verify(prefix + "a.recvfrom(...) error", se, snoerr);
 	failures += verify(prefix + "a.recvfrom(...) data", pkt.data, allBytesReversed);
-	
+
 	sockready--;
-	
+
 	while (sockready != 0) {}
-	
+
 	//Close
 }
 
@@ -687,27 +718,21 @@ void init() {
 int proper(sks::domain d, sks::protocol p) {
 	int failures;
 	//Run either con_proper(...) or conl_proper(...) based on if protocol is connected or connection-less
-	switch (p) {
-		case sks::tcp:
-		case sks::seq:
-			failures = con_proper(d);
-			break;
-		case sks::udp:
-		case sks::rdm:
-		case sks::raw:
-			failures = conl_proper(d);
-			break;
-		default:
-			std::cerr << tagnote << "\tproper(" << sks::to_string(p) << ", " << sks::to_string(d) << ") cannot be run with " << sks::to_string(p) << " protocol." << std::endl;
-			return 0;
+	if (sks::connectionless(p)) {
+		failures = conl_proper(d, p);
+	}
+	else {
+		failures = con_proper(d, p);
 	}
 	
 	//Report
-	if (failures > 0) { //At least one error
-		std::cerr << tagfail << "\tproper(" << sks::to_string(p) << ", " << sks::to_string(d) << ") failed with " << failures << " errors:" << std::endl;
+	if (failures == -1) { //Could not run test
+		return 0;
+	} else if (failures > 0) { //At least one error
+		std::cerr << tagfail << "\tproper(" << sks::to_string(d) << ", " << sks::to_string(p) << ") failed with " << failures << " errors:" << std::endl;
 		std::cerr << verifystreamstring() << std::endl;
 	} else {
-		std::cout << tagok << "\tproper(" << sks::to_string(p) << ", " << sks::to_string(d) << ") passed without errors." << std::endl;
+		std::cout << tagok << "\tproper(" << sks::to_string(d) << ", " << sks::to_string(p) << ") passed without errors." << std::endl;
 	}
 	
 	return failures;
