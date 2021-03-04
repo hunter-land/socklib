@@ -76,14 +76,21 @@ namespace sks {
 	std::string errorstr(errortype e);
 	
 	struct sockaddress {
+		//Default sockaddress
 		sockaddress(); //Zeros the addr[] field
+		//Attempt to get a sockaddress based on a string input (url, ip:port, etc)
+		sockaddress(std::string str, uint16_t port = 0, domain d = (domain)AF_UNSPEC, protocol p = (protocol)0);
 		
 		domain d;
 		uint8_t addr[16]; //Network byte order
 		std::string addrstring = "";
-		unsigned short port = 0;
+		uint16_t port = 0;
 	};
 	std::string to_string(sockaddress sa);
+	//Converting sockaddress to sockaddr
+	sockaddr_storage satosa(const sockaddress& s, socklen_t* saddrlen = nullptr);
+	//Converting sockaddr to sockaddress
+	sockaddress satosa(const sockaddr_storage* const saddr, size_t slen = sizeof(sockaddr_storage));
 	
 	struct packet {
 		//Remote address (TX/RX)
@@ -91,6 +98,8 @@ namespace sks {
 		//Data
 		std::vector<uint8_t> data;
 	};
+	
+	typedef std::function<int(packet&)> packfunc;
 	
 	class socket_base {
 	protected:
@@ -104,8 +113,8 @@ namespace sks {
 		sockaddress m_loc_addr; //Socket's local address
 		sockaddress m_rem_addr; //Socket's remote/peer address
 		
-		std::map<size_t, std::function<int(packet&)>> m_presend; //Function(s) to call in ascending order before sending a packet
-		std::map<size_t, std::function<int(packet&)>> m_postrecv; //Function(s) to call in descending order after receiving a packet
+		std::map<size_t, packfunc> m_presend; //Function(s) to call in ascending order before sending a packet
+		std::map<size_t, packfunc> m_postrecv; //Function(s) to call in descending order after receiving a packet
 		
 		std::chrono::microseconds m_rxto = std::chrono::microseconds(0); //RX timeout
 		std::chrono::microseconds m_txto = std::chrono::microseconds(0); //TX timeout
@@ -174,6 +183,9 @@ namespace sks {
 		//Connect to remote socket
 		//Returns BSD error (if any)
 		int connect(sockaddress sa);
+		//Connect to remote socket
+		//Returns BSD error (if any)
+		int connect(std::string remote, uint16_t port);
 		
 		//Read bytes from socket
 		//n should be equal to or larger than expected data
@@ -194,13 +206,13 @@ namespace sks {
 		int canwrite(int timeoutms = 0);
 		
 		//Set the pre-send function
-		void setpre(std::function<int(packet&)> f, size_t index = 0);
+		void setpre(packfunc f, size_t index = 0);
 		//Set the post-recv function
-		void setpost(std::function<int(packet&)> f, size_t index = 0);
+		void setpost(packfunc f, size_t index = 0);
 		//Set the pre-send function
-		std::function<int(packet&)> pre(size_t index = 0);
+		packfunc pre(size_t index = 0);
 		//Set the post-recv function
-		std::function<int(packet&)> post(size_t index = 0);
+		packfunc post(size_t index = 0);
 	};
 
 	class runtime_error : public std::runtime_error {

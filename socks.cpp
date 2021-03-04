@@ -12,6 +12,7 @@ extern "C" {
 	#include <errno.h> //Error numbers
 	#include <string.h> //strerror
 	#include <sys/types.h> //sockopt
+	#include <netdb.h> //addrinfo
 	
 	//Socket related/helpers
 	#ifndef _WIN32
@@ -36,6 +37,7 @@ extern "C" {
 }
 #include <algorithm>
 #include <stdexcept>
+#include <iostream>
 
 namespace sks {
 	
@@ -173,9 +175,34 @@ namespace sks {
 	sockaddress::sockaddress() {
 		memset(&addr, 0, sizeof(addr));
 	}
+	sockaddress::sockaddress(std::string str, uint16_t port, domain d, protocol p) : sockaddress() {
+		addrinfo hint;
+		memset(&hint, 0, sizeof(hint));
+		hint.ai_family = d;
+		hint.ai_socktype = p;
+		hint.ai_flags = AI_CANONNAME | AI_PASSIVE;
+		
+		addrinfo* results = nullptr;
+		int e = getaddrinfo(str.c_str(), NULL, &hint, &results);
+		if (e != 0) {
+			//Errno error
+			if (e == EAI_SYSTEM) {
+				e = errno;
+			}
+			return;
+		}
+		if (results == nullptr) {
+			return;
+		}
+		
+		*this = satosa((sockaddr_storage*)results->ai_addr, results->ai_addrlen);
+		addrstring = results->ai_canonname;
+		this->port = port;
+		freeaddrinfo(results);
+	}
 	
 	//Converting sockaddress to sockaddr
-	sockaddr_storage satosa(const sockaddress& s, socklen_t* saddrlen = nullptr) {
+	sockaddr_storage satosa(const sockaddress& s, socklen_t* saddrlen) {
 		sockaddr_storage saddr;
 		memset(&saddr, 0, sizeof(saddr));
 		
@@ -258,7 +285,7 @@ namespace sks {
 		return saddr;
 	}
 	//Converting sockaddr to sockaddress
-	sockaddress satosa(const sockaddr_storage* const saddr, size_t slen = sizeof(sockaddr_storage)) {
+	sockaddress satosa(const sockaddr_storage* const saddr, size_t slen) {
 		sockaddress s;
 		
 		s.d = (domain)saddr->ss_family;
@@ -596,6 +623,9 @@ namespace sks {
 		s.setpost(post());
 		return s;
 	}
+	int socket_base::connect(std::string remote, uint16_t port) {
+		return connect(sockaddress(remote, port, m_domain, m_protocol));
+	}
 	int socket_base::connect(sockaddress sa) {
 		socklen_t slen = sizeof(sockaddr_storage);
 		sockaddr_storage saddr = satosa(sa, &slen);
@@ -664,16 +694,15 @@ namespace sks {
 		
 		//Do post-recv function(s)
 		for (auto it = m_postrecv.rbegin(); it != m_postrecv.rend(); it++) {
-			if (it->second == nullptr) {
-				continue;
-			}
-			
-			int r = it->second(pkt);
-			if (r != 0) {
-				//User's program has returned an error code
-				e.type = USER;
-				e.erno = r;
-				return e;
+			if (it->second != nullptr) {
+				
+				int r = it->second(pkt);
+				if (r != 0) {
+					//User's program has returned an error code
+					e.type = USER;
+					e.erno = r;
+					return e;
+				}
 			}
 		}
 		
@@ -698,16 +727,15 @@ namespace sks {
 		
 		//Do pre-send function(s)
 		for (auto it = m_presend.begin(); it != m_presend.end(); it++) {
-			if (it->second == nullptr) {
-				continue;
-			}
-			
-			int r = it->second(pkt);
-			if (r != 0) {
-				//Failure; Abort
-				e.type = USER;
-				e.erno = r;
-				return e;
+			if (it->second != nullptr) {
+				
+				int r = it->second(pkt);
+				if (r != 0) {
+					//Failure; Abort
+					e.type = USER;
+					e.erno = r;
+					return e;
+				}
 			}
 		}
 		
@@ -801,16 +829,16 @@ namespace sks {
 	}
 	
 	//Pre and Post functions
-	void socket_base::setpre(std::function<int(packet&)> f, size_t index) {
+	void socket_base::setpre(packfunc f, size_t index) {
 		m_presend[index] = f;
 	}
-	void socket_base::setpost(std::function<int(packet&)> f, size_t index) {
+	void socket_base::setpost(packfunc f, size_t index) {
 		m_postrecv[index] = f;
 	}
-	std::function<int(packet&)> socket_base::pre(size_t index) {
+	packfunc socket_base::pre(size_t index) {
 		return m_presend[index];
 	}
-	std::function<int(packet&)> socket_base::post(size_t index) {
+	packfunc socket_base::post(size_t index) {
 		return m_postrecv[index];
 	}
 	
