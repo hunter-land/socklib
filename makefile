@@ -1,5 +1,5 @@
 objects = socks.o
-CXXSTD = c++20
+CXXSTD = c++11
 CSTD = c17
 
 build : $(objects)
