@@ -1,5 +1,7 @@
+#define _POSIX_C_SOURCE 200112L //Needed to get addrinfo and related functions <netdb.h>
+
 #include "socks.hpp"
-extern "C" {
+extern "C" {	
 	//Sockets
 	#ifndef _WIN32
 		#include <sys/socket.h>
@@ -478,7 +480,7 @@ namespace sks {
 	}
 	
 	//Timeout values
-	int socket_base::setrxtimeout(std::chrono::microseconds time) {
+	serror socket_base::setrxtimeout(std::chrono::microseconds time) {
 		#ifndef _WIN32 //POSIX, for normal people
 			struct timeval tv;
 			tv.tv_sec = (time_t)( std::chrono::duration_cast<std::chrono::seconds>(time).count() );
@@ -491,16 +493,16 @@ namespace sks {
 		#endif
 		
 		if (r != 0) {
-			return r;
+			return { BSD, r };
 		}
 		
 		m_rxto = time;
-		return 0;
+		return { CLASS, 0 };
 	}
-	int socket_base::setrxtimeout(uint64_t time_usec) {
+	serror socket_base::setrxtimeout(uint64_t time_usec) {
 		return setrxtimeout(std::chrono::microseconds(time_usec));
 	}
-	int socket_base::settxtimeout(std::chrono::microseconds time) {
+	serror socket_base::settxtimeout(std::chrono::microseconds time) {
 		#ifndef _WIN32 //POSIX, for normal people
 			struct timeval tv;
 			tv.tv_sec = (time_t)( std::chrono::duration_cast<std::chrono::seconds>(time).count() );
@@ -513,13 +515,13 @@ namespace sks {
 		#endif
 		
 		if (r != 0) {
-			return r;
+			return { BSD, r };
 		}
 		
 		m_txto = time;
-		return 0;
+		return { CLASS, 0 };
 	}
-	int socket_base::settxtimeout(uint64_t time_usec) {
+	serror socket_base::settxtimeout(uint64_t time_usec) {
 		return settxtimeout(std::chrono::microseconds(time_usec));
 	}
 	std::chrono::microseconds socket_base::rxtimeout() {
@@ -530,23 +532,21 @@ namespace sks {
 	}
 	
 	//Setup
-	int socket_base::bind() {
+	serror socket_base::bind() {
 		sockaddress sa;
 		sa.d = m_domain;
-		memset(&sa.addr, 0, sizeof(sa.addr));
 		sa.port = 0;
 		
 		return bind(sa);
 	}
-	int socket_base::bind(unsigned short port) {
+	serror socket_base::bind(unsigned short port) {
 		sockaddress sa;
 		sa.d = m_domain;
-		memset(&sa.addr, 0, sizeof(sa.addr));
 		sa.port = port;
 		
 		return bind(sa);
 	}
-	int socket_base::bind(std::string addr) {
+	serror socket_base::bind(std::string addr) {
 		sockaddress sa;
 		sa.d = m_domain;
 		sa.addrstring = addr;
@@ -554,7 +554,7 @@ namespace sks {
 		
 		return bind(sa);
 	}
-	int socket_base::bind(std::string addr, unsigned short port) {
+	serror socket_base::bind(std::string addr, unsigned short port) {
 		sockaddress sa;
 		sa.d = m_domain;
 		sa.addrstring = addr;
@@ -562,19 +562,19 @@ namespace sks {
 		
 		return bind(sa);
 	}
-	int socket_base::bind(sockaddress sa) {
+	serror socket_base::bind(sockaddress sa) {
 		socklen_t slen = sizeof(sockaddr_storage);
 		sockaddr_storage saddr = satosa(sa, &slen);
 		
 		if (::bind(m_sockid, (sockaddr*)&saddr, slen) == -1) {
-			return errno;
+			return { BSD, errno };
 		} else {
 			setlocinfo();
 			if (connectionless(m_protocol)) {
 				m_valid = true;
 			}
 			m_bound = true;
-			return 0;
+			return { CLASS, 0 };
 		}
 	}
 	serror socket_base::listen(int backlog) {
@@ -623,24 +623,24 @@ namespace sks {
 		s.setpost(post());
 		return s;
 	}
-	int socket_base::connect(std::string remote, uint16_t port) {
+	serror socket_base::connect(std::string remote, uint16_t port) {
 		return connect(sockaddress(remote, port, m_domain, m_protocol));
 	}
-	int socket_base::connect(sockaddress sa) {
+	serror socket_base::connect(sockaddress sa) {
 		socklen_t slen = sizeof(sockaddr_storage);
 		sockaddr_storage saddr = satosa(sa, &slen);
 
 		anytoloop(saddr);
 		
 		if (::connect(m_sockid, (sockaddr*)&saddr, slen) == -1) {
-			return errno;
+			return { BSD, errno };
 		}
 		
 		setlocinfo();
 		setreminfo();
 		
 		m_valid = true;
-		return 0;
+		return { CLASS, 0 };
 	}
 	
 	//Data handling functions

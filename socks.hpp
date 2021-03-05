@@ -148,44 +148,44 @@ namespace sks {
 		int getoption(option o, serror* e = nullptr, int level = SOL_SOCKET);
 		
 		//Set RX timeout
-		//Returns BSD error (if any)
-		int setrxtimeout(std::chrono::microseconds time);
-		int setrxtimeout(uint64_t time_usec);
+		//Returns error (if any)
+		serror setrxtimeout(std::chrono::microseconds time);
+		serror setrxtimeout(uint64_t time_usec);
 		//Set TX timeout
-		//Returns BSD error (if any)
-		int settxtimeout(std::chrono::microseconds time);
-		int settxtimeout(uint64_t time_usec);
+		//Returns error (if any)
+		serror settxtimeout(std::chrono::microseconds time);
+		serror settxtimeout(uint64_t time_usec);
 		//Get RX timeout
 		std::chrono::microseconds rxtimeout();
 		//Get TX timeout
 		std::chrono::microseconds txtimeout();
 		
 		//Bind to any port and any IP
-		//Returns BSD error (if any)
-		int bind();
+		//Returns error (if any)
+		serror bind();
 		//Bind to given port and any IP
-		int bind(unsigned short port);
-		//Returns BSD error (if any)
+		//Returns error (if any)
+		serror bind(unsigned short port);
 		//Bind to any port and given IP
-		//Returns BSD error (if any)
-		int bind(std::string addr);
+		//Returns error (if any)
+		serror bind(std::string addr);
 		//Bind to given port and given IP
-		//Returns BSD error (if any)
-		int bind(std::string addr, unsigned short port);
+		//Returns error (if any)
+		serror bind(std::string addr, unsigned short port);
 		//Bind to given socket address
-		//Returns BSD error (if any)
-		int bind(sockaddress sa);
+		//Returns error (if any)
+		serror bind(sockaddress sa);
 		//Start listening to connection requests
 		serror listen(int backlog = 0xFF);
 		//Accept pending connection request (from listen(...))
 		//Returns connected socket
 		socket_base accept();
 		//Connect to remote socket
-		//Returns BSD error (if any)
-		int connect(sockaddress sa);
+		//Returns error (if any)
+		serror connect(sockaddress sa);
 		//Connect to remote socket
-		//Returns BSD error (if any)
-		int connect(std::string remote, uint16_t port);
+		//Returns error (if any)
+		serror connect(std::string remote, uint16_t port);
 		
 		//Read bytes from socket
 		//n should be equal to or larger than expected data
@@ -198,11 +198,11 @@ namespace sks {
 		//Is this socket able to send data
 		bool valid();
 		//How many bytes are available to be read (negative for error)
-		//Returns the negative BSD error (if any)
+		//Returns the negative BSD error (if any), otherwise positive
 		int availdata();
-		//Returns the negative BSD error (if any)
+		//Returns the negative BSD error (if any), otherwise positive
 		int canread(int timeoutms = 0);
-		//Returns the negative BSD error (if any)
+		//Returns the negative BSD error (if any), otherwise positive
 		int canwrite(int timeoutms = 0);
 		
 		//Set the pre-send function
