@@ -849,13 +849,13 @@ namespace sks {
 		return (pfd.revents & POLLOUT) > 0;
 	}
 	//Info
-	domain socket_base::domain() {
+	domain socket_base::getDomain() {
 		return m_domain;
 	}
-	protocol socket_base::protocol() {
+	protocol socket_base::getProtocol() {
 		return m_protocol;
 	}
-	int socket_base::subprotocol() {
+	int socket_base::getSubprotocol() {
 		return m_p;
 	}
 	
