@@ -465,12 +465,12 @@ void con_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 	if (d == sks::unix) {
 		unlink("sks_utest_unix.sock"); //Make sure file is non-existant so we can bind successfully
 		//Bind to this
-		e = h.bind("sks_utest_unix.sock");
+		se = h.bind("sks_utest_unix.sock");
 	} else {
 		//Bind to something
-		e = h.bind();
+		se = h.bind();
 	}
-	int bound = verify(prefix + "h.bind()", e, 0);
+	int bound = verify(prefix + "h.bind()", se, snoerr);
 	if (bound == 0) {
 		host = h.locaddr();
 		hostvalid = 1;
@@ -512,10 +512,10 @@ void con_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 	
 	hc->setpre(reversePkt); //Cannot fail, no check needed (but we *do* need to still verify it worked on client)
 	
-	e = hc->setrxtimeout(5000000); //microseconds
-	failures += verify(prefix + "hc.setrxtimeout(5s)", e, 0);
-	e = hc->settxtimeout(5000000); //microseconds
-	failures += verify(prefix + "hc.settxtimeout(5s)", e, 0);
+	se = hc->setrxtimeout(5000000); //microseconds
+	failures += verify(prefix + "hc.setrxtimeout(5s)", se, snoerr);
+	se = hc->settxtimeout(5000000); //microseconds
+	failures += verify(prefix + "hc.settxtimeout(5s)", se, snoerr);
 	
 	std::vector<uint8_t> data;
 	se = hc->recvfrom(data);
@@ -550,8 +550,8 @@ void con_proper_t2(int& failures, sks::domain d, sks::protocol p) {
 		return;
 	}
 	
-	e = c->connect(host);
-	failures += verify(prefix + "c.connect(...)", e, 0);
+	se = c->connect(host);
+	failures += verify(prefix + "c.connect(...)", se, snoerr);
 	
 	//We wait 5 seconds for the accept() call, and rule the test as a failure if it takes more than 5 seconds
 	e = c->canwrite(5000);
@@ -562,10 +562,10 @@ void con_proper_t2(int& failures, sks::domain d, sks::protocol p) {
 		return;
 	}
 	
-	e = c->setrxtimeout(5000000); //microseconds
-	failures += verify(prefix + "c.setrxtimeout(5s)", e, 0);
-	e = c->settxtimeout(5000000); //microseconds
-	failures += verify(prefix + "c.settxtimeout(5s)", e, 0);
+	se = c->setrxtimeout(5000000); //microseconds
+	failures += verify(prefix + "c.setrxtimeout(5s)", se, snoerr);
+	se = c->settxtimeout(5000000); //microseconds
+	failures += verify(prefix + "c.settxtimeout(5s)", se, snoerr);
 	
 	se = c->sendto(allBytes);
 	failures += verify(prefix + "c.sendto(...) error", se, snoerr);
@@ -610,7 +610,7 @@ int conl_proper(sks::domain d, sks::protocol p) {
 	return t1f + t2f;
 }
 void conl_proper_t1(int& failures, sks::domain d, sks::protocol p) {
-	int e;
+	//int e;
 	sks::serror se;
 	std::string prefix = "udp_proper_t1(";
 	prefix += sks::to_string(d);
@@ -623,13 +623,13 @@ void conl_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 	if (d == sks::unix) {
 		unlink("./.socklib_unit_test_unix_socket_1"); //Make sure file is non-existant so we can bind successfully
 		//Bind to this
-		e = b.bind("./.socklib_unit_test_unix_socket_1");
+		se = b.bind("./.socklib_unit_test_unix_socket_1");
 	}
 	else {
 		//Bind to something
-		e = b.bind();
+		se = b.bind();
 	}
-	failures += verify(prefix + "b.bind()", e, 0);
+	failures += verify(prefix + "b.bind()", se, snoerr);
 
 	host = b.locaddr();
 	sockready++;
@@ -638,10 +638,10 @@ void conl_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 
 	b.setpre(reversePkt); //Cannot fail; no verify; still need to verify it worked on client recvfrom
 
-	e = b.setrxtimeout(5000000); //microseconds
-	failures += verify(prefix + "b.setrxtimeout(5s)", e, 0);
-	e = b.settxtimeout(5000000); //microseconds
-	failures += verify(prefix + "b.settxtimeout(5s)", e, 0);
+	se = b.setrxtimeout(5000000); //microseconds
+	failures += verify(prefix + "b.setrxtimeout(5s)", se, snoerr);
+	se = b.settxtimeout(5000000); //microseconds
+	failures += verify(prefix + "b.settxtimeout(5s)", se, snoerr);
 
 	sks::packet pkt;
 	se = b.recvfrom(pkt);
@@ -659,7 +659,7 @@ void conl_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 	//Close
 }
 void conl_proper_t2(int& failures, sks::domain d, sks::protocol p) {
-	int e;
+	//int e;
 	sks::serror se;
 	std::string prefix = "udp_proper_t2(";
 	prefix += sks::to_string(d);
@@ -672,22 +672,22 @@ void conl_proper_t2(int& failures, sks::domain d, sks::protocol p) {
 	if (d == sks::unix) {
 		unlink("./.socklib_unit_test_unix_socket_2"); //Make sure file is non-existant so we can bind successfully
 		//Bind to this
-		e = a.bind("./.socklib_unit_test_unix_socket_2");
+		se = a.bind("./.socklib_unit_test_unix_socket_2");
 	}
 	else {
 		//Bind to something
-		e = a.bind();
+		se = a.bind();
 	}
-	failures += verify(prefix + "a.bind()", e, 0);
+	failures += verify(prefix + "a.bind()", se, snoerr);
 
 	sockready++;
 
 	while (sockready != 2) {}
 
-	e = a.setrxtimeout(5000000); //microseconds
-	failures += verify(prefix + "a.setrxtimeout(5s)", e, 0);
-	e = a.settxtimeout(5000000); //microseconds
-	failures += verify(prefix + "a.settxtimeout(5s)", e, 0);
+	se = a.setrxtimeout(5000000); //microseconds
+	failures += verify(prefix + "a.setrxtimeout(5s)", se, snoerr);
+	se = a.settxtimeout(5000000); //microseconds
+	failures += verify(prefix + "a.settxtimeout(5s)", se, snoerr);
 
 	sks::packet pkt;
 	pkt.rem = host;
