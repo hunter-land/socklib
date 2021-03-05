@@ -195,11 +195,11 @@ namespace sks {
 		//Returns the negative BSD error (if any), otherwise positive
 		int canwrite(int timeoutms = 0);
 		//Get the domain of this socket
-		sks::domain domain();
+		domain getDomain();
 		//Get the protocol/type of this socket
-		sks::protocol protocol();
+		protocol getProtocol();
 		//Get the sub protocol of this socket
-		int subprotocol();
+		int getSubprotocol();
 		
 		//Set the pre-send function
 		void setpre(packfunc f, size_t index = 0);
