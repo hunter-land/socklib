@@ -42,11 +42,6 @@ namespace sks {
 		reuseaddr = SO_REUSEADDR,	//bool
 		error = SO_ERROR			//int
 	};
-	//Notes of functions to add
-	// Get domain
-	// Get protocol/type
-	// Get (sub-)protocol
-	// Check cmsg(3) for packet timestamp info
 	
 	enum errortype { //Error type/source
 		BSD, //C-Socket error (errno)
@@ -60,11 +55,6 @@ namespace sks {
 		UNBOUND, //Socket was not bound when it should have been
 		OPTTYPE, //option selection does not match data type
 		NOLISTEN //Socket is not a listener when trying to accept
-	};
-	//TODO: Fix and update
-	enum usererrors { //User error
-		BADPSR = 1, //Non-zero return of pre-send
-		BADPRR //Non-zero return of post-recv
 	};
 	struct serror { //Socket error
 		errortype type; //Error type/source
@@ -123,7 +113,7 @@ namespace sks {
 		sockaddr_storage setreminfo(); //Update m_rem_addr
 	public:
 		//Create a new socket
-		socket_base(domain d, protocol t = protocol::tcp, int p = 0);
+		socket_base(sks::domain d, sks::protocol t = sks::protocol::tcp, int p = 0);
 		//Wrap an existing C socket file descriptor with this class
 		//Constructor assumes sockfd is in a valid state (able to send/recv) and not a listener
 		socket_base(int sockfd);
@@ -204,6 +194,12 @@ namespace sks {
 		int canread(int timeoutms = 0);
 		//Returns the negative BSD error (if any), otherwise positive
 		int canwrite(int timeoutms = 0);
+		//Get the domain of this socket
+		sks::domain domain();
+		//Get the protocol/type of this socket
+		sks::protocol protocol();
+		//Get the sub protocol of this socket
+		int subprotocol();
 		
 		//Set the pre-send function
 		void setpre(packfunc f, size_t index = 0);

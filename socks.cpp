@@ -117,17 +117,7 @@ namespace sks {
 				s = errorstr(e.erno);
 				break;
 			case USER:
-				switch (e.erno) {
-					case BADPSR:
-						s = "Bad Pre-Send function return (!=0)";
-						break;
-					case BADPRR:
-						s = "Bad Post-Receive function return (!=0)";
-						break;
-					default:
-						s = "Unknown user error";
-						break;
-				}
+				s = "A packfunc failed with code " + e.erno;
 				break;
 			case CLASS:
 				switch (e.erno) {
@@ -363,7 +353,7 @@ namespace sks {
 	}
 	
 	//Constructors and destructors
-	socket_base::socket_base(domain d, protocol t, int p) {
+	socket_base::socket_base(sks::domain d, sks::protocol t, int p) {
 		m_domain = d;
 		m_protocol = t;
 		m_sockid = socket(d, t, p);
@@ -381,23 +371,54 @@ namespace sks {
 		
 		int t;
 		socklen_t tlen = sizeof(t);
+		int e;
 		
 		#ifndef _WIN32
-			int e = getsockopt(m_sockid, SOL_SOCKET, SO_TYPE, &t, &tlen);
+			e = getsockopt(m_sockid, SOL_SOCKET, SO_TYPE, &t, &tlen);
 		#else
-			int e = getsockopt(m_sockid, SOL_SOCKET, SO_TYPE, (char*)&t, &tlen);
+			e = getsockopt(m_sockid, SOL_SOCKET, SO_TYPE, (char*)&t, &tlen);
 		#endif
 		
 		if (e == 0) {
-			m_protocol = (protocol)t;
+			m_protocol = (sks::protocol)t;
 		}
 		
-		sockaddr_storage saddr = setlocinfo();
-		setreminfo();
+		sockaddr_storage lsaddr = setlocinfo();
+		sockaddr_storage rsaddr = setreminfo();
 		
-		m_domain = (domain)saddr.ss_family;
+		m_domain = (sks::domain)lsaddr.ss_family;
 		
-		m_valid = true; //TODO: Check, not assume
+		//Check if socket is bound
+		for (size_t i = sizeof(lsaddr.ss_family); i < sizeof(sockaddr_storage); i++) {
+			if (((uint8_t*)&lsaddr)[i] != 0) {
+				m_bound = true;
+				if (connectionless(m_protocol)) {
+					m_valid = true;
+				}
+				break;				
+			}
+		}
+		
+		//If using a connected protocol, check for an active connection
+		if (!connectionless(m_protocol)) {
+			for (size_t i = sizeof(rsaddr.ss_family); i < sizeof(sockaddr_storage); i++) {
+				if (((uint8_t*)&rsaddr)[i] != 0) {
+					m_valid = true;
+					break;				
+				}
+			}
+		}
+		
+		#ifndef _WIN32
+			e = getsockopt(m_sockid, SOL_SOCKET, SO_ACCEPTCONN, &t, &tlen);
+		#else
+			e = getsockopt(m_sockid, SOL_SOCKET, SO_ACCEPTCONN, (char*)&t, &tlen);
+		#endif
+		
+		if (e == 0) {
+			m_listening = t;
+			m_valid = true;
+		}		
 	}
 	socket_base::socket_base(socket_base&& s) {
 		//std::cout << "Swapping socket #" << s.m_sockid << " with socket #" << m_sockid << std::endl; 
@@ -827,6 +848,16 @@ namespace sks {
 		
 		return (pfd.revents & POLLOUT) > 0;
 	}
+	//Info
+	domain socket_base::domain() {
+		return m_domain;
+	}
+	protocol socket_base::protocol() {
+		return m_protocol;
+	}
+	int socket_base::subprotocol() {
+		return m_p;
+	}
 	
 	//Pre and Post functions
 	void socket_base::setpre(packfunc f, size_t index) {
@@ -849,7 +880,7 @@ namespace sks {
 		socklen_t slen = sizeof(saddr);
 		
 		if (getsockname(m_sockid, (sockaddr*)&saddr, &slen) == -1) {
-			memset(&saddr, 0, sizeof(saddr));
+			memset(&saddr + sizeof(sa_family_t), 0, sizeof(saddr) - sizeof(sa_family_t));
 			return saddr;
 		}
 		
@@ -862,7 +893,7 @@ namespace sks {
 		socklen_t slen = sizeof(saddr);
 		
 		if (getpeername(m_sockid, (sockaddr*)&saddr, &slen) == -1) {
-			memset(&saddr, 0, sizeof(saddr));
+			memset(&saddr + sizeof(sa_family_t), 0, sizeof(saddr) - sizeof(sa_family_t));
 			return saddr;
 		}
 		
@@ -870,12 +901,12 @@ namespace sks {
 		
 		return saddr;
 	}
-
-
-
-
-
-
+	
+	
+	
+	
+	
+	
 	runtime_error::runtime_error(const char* str, serror e) : std::runtime_error(str) {
 		se = e;
 	}
