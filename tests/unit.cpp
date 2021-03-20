@@ -15,7 +15,7 @@ extern "C" {
 	#ifndef _WIN32	
 		#include <unistd.h> //ioctl
 	#else
-		#define UNLINK(x) DeleteFile(x)
+		#define unlink(x) (DeleteFile(x) == 0 ? -1 : 0)
 	#endif
 }
 
@@ -174,10 +174,12 @@ static int verify(std::string name, const sks::runtime_error& actual, const sks:
 static const sks::serror snoerr = { sks::BSD, 0 };
 static const sks::runtime_error norte(sks::errorstr(0), snoerr);
 
-static std::vector<uint8_t> allBytes;
-static std::vector<uint8_t> allBytesReversed;
+static std::vector<uint8_t> allBytes; //Treat as const
+static std::vector<uint8_t> allBytesReversed; //Treat as const
 static const std::vector<sks::domain> allDomains = { sks::unix, sks::ipv4, sks::ipv6 };
 static const std::vector<sks::protocol> allProtocols = { sks::tcp, sks::udp, sks::seq, sks::rdm, sks::raw };
+static const std::string unixpath = "./.unix.sock"; //Path to unix socket
+
 static sks::sockaddress host;
 static int hostvalid = 0; //Invalid = 0, valid = 1, will never be valid (skip) = 2 (For connection-based)
 static int sockready = 0; //How many sockets are ready (For connectionless)
@@ -199,7 +201,6 @@ static std::vector<std::string> split(std::string line, std::string delim) {
 	splitVector.push_back(line);
 	return splitVector;
 }
-
 int reversePkt(sks::packet& pkt) {
 	::reverse(pkt.data.begin(), pkt.data.end());
 	return 0; //Function can't fail
@@ -463,9 +464,9 @@ void con_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 	sks::socket_base h(d, p); //Construct h
 	
 	if (d == sks::unix) {
-		unlink("sks_utest_unix.sock"); //Make sure file is non-existant so we can bind successfully
+		unlink(unixpath.c_str()); //Make sure file is non-existant so we can bind successfully
 		//Bind to this
-		se = h.bind("sks_utest_unix.sock");
+		se = h.bind(unixpath);
 	} else {
 		//Bind to something
 		se = h.bind();
@@ -487,7 +488,7 @@ void con_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 	
 	//We wait 5 seconds for a connection attempt, and rule the test as a failure if we get none
 	e = h.canread(5000);
-	failures += verify(prefix + "h.listen() wait", e, 1, false);
+	failures += verify(prefix + "h.canread(5s)", e, 1, false);
 	if (e != 1) {
 		//std::cerr << "No incoming connection requests after 5 seconds" << std::endl;
 		
@@ -555,7 +556,7 @@ void con_proper_t2(int& failures, sks::domain d, sks::protocol p) {
 	
 	//We wait 5 seconds for the accept() call, and rule the test as a failure if it takes more than 5 seconds
 	e = c->canwrite(5000);
-	failures += verify(prefix + "c.canwrite(...) wait", e, 1, false);
+	failures += verify(prefix + "c.canwrite(5s)", e, 1, false);
 	if (e != 1) {
 		//std::cerr << "No incoming connection requests after 5 seconds" << std::endl;
 		failures += 5;
@@ -621,9 +622,9 @@ void conl_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 	sks::socket_base b(d, p);
 
 	if (d == sks::unix) {
-		unlink("./.socklib_unit_test_unix_socket_1"); //Make sure file is non-existant so we can bind successfully
+		unlink((unixpath + "1").c_str()); //Make sure file is non-existant so we can bind successfully
 		//Bind to this
-		se = b.bind("./.socklib_unit_test_unix_socket_1");
+		se = b.bind(unixpath + "1");
 	}
 	else {
 		//Bind to something
@@ -670,9 +671,9 @@ void conl_proper_t2(int& failures, sks::domain d, sks::protocol p) {
 	sks::socket_base a(d, p);
 
 	if (d == sks::unix) {
-		unlink("./.socklib_unit_test_unix_socket_2"); //Make sure file is non-existant so we can bind successfully
+		unlink((unixpath + "2").c_str()); //Make sure file is non-existant so we can bind successfully
 		//Bind to this
-		se = a.bind("./.socklib_unit_test_unix_socket_2");
+		se = a.bind(unixpath + "2");
 	}
 	else {
 		//Bind to something
