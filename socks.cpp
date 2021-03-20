@@ -1,6 +1,6 @@
 #define _POSIX_C_SOURCE 200112L //Needed to get addrinfo and related functions <netdb.h>
 
-#include "socks.hpp"
+#include <socks.hpp>
 extern "C" {	
 	//Sockets
 	#ifndef _WIN32
@@ -14,7 +14,6 @@ extern "C" {
 	#include <errno.h> //Error numbers
 	#include <string.h> //strerror
 	#include <sys/types.h> //sockopt
-	#include <netdb.h> //addrinfo
 	
 	//Socket related/helpers
 	#ifndef _WIN32
@@ -25,6 +24,7 @@ extern "C" {
 		#include <sys/ioctl.h> //ioctl
 		#include <sys/time.h> //timeval
 		#include <poll.h>
+		#include <netdb.h> //addrinfo
 	#else
 		#pragma comment(lib, "Ws2_32.lib")
 		#include <ws2tcpip.h> //should have inet_pton but only does sometimes: Schrödinger's header
@@ -39,7 +39,6 @@ extern "C" {
 }
 #include <algorithm>
 #include <stdexcept>
-#include <iostream>
 
 namespace sks {
 	
@@ -178,9 +177,11 @@ namespace sks {
 		int e = getaddrinfo(str.c_str(), NULL, &hint, &results);
 		if (e != 0) {
 			//Errno error
-			if (e == EAI_SYSTEM) {
-				e = errno;
-			}
+			#ifndef _WIN32
+				if (e == EAI_SYSTEM) {
+					e = errno;
+				}
+			#endif
 			return;
 		}
 		if (results == nullptr) {
@@ -277,7 +278,7 @@ namespace sks {
 		return saddr;
 	}
 	//Converting sockaddr to sockaddress
-	sockaddress satosa(const sockaddr_storage* const saddr, size_t slen) {
+	sockaddress satosa(const sockaddr_storage* const saddr, socklen_t slen) {
 		sockaddress s;
 		
 		s.d = (domain)saddr->ss_family;
@@ -454,6 +455,10 @@ namespace sks {
 		if (m_domain == unix) {
 			unlink(m_loc_addr.addrstring.c_str());
 		}
+	}
+	socket_base& socket_base::operator=( socket_base&& s ) {
+		socket_base(std::move(s));
+		return *this;
 	}
 	
 	//Local and remote addresses
