@@ -1,4 +1,4 @@
-#include "../socks.hpp"
+#include <socks.hpp>
 #include <map>
 #include <string>
 #include <thread>
