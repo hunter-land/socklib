@@ -11,6 +11,7 @@ jobs:
         mkdir build
         cmake -S . -B build -DDO_TESTS=ON
         cd build
+        make install
         make unit-test
         ./unit-test
       
