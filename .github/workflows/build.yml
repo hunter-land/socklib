@@ -11,6 +11,6 @@ jobs:
         mkdir build
         cmake -S . -B build -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON
         cd build
-        make unit-test
-        ./unit-test
+        make socks_STATIC
+        make socks_SHARED
       
