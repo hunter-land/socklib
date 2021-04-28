@@ -7,5 +7,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build and run tests
-      run: make test CXXSTD=c++11
+      run: |
+        mkdir build
+        cmake -S . -B build DDO_TESTS=ON
+        cd build
+        make socks_STATIC
+        make socks_SHARED
       

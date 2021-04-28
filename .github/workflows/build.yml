@@ -7,5 +7,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build objects
-      run: make build CXXSTD=c++11
+      run: |
+        mkdir build
+        cmake -S . -B build DBUILD_SHARED_LIBS=ON DBUILD_STATIC_LIBS=ON
+        cd build
+        make unit-test
+        ./unit-test
       
