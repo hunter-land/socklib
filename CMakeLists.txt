@@ -42,5 +42,6 @@ install(FILES ${HEADER_FILES} DESTINATION include)
 #Tests
 if (DO_TESTS)
 	add_executable(unit-test tests/unit.cpp)
+	target_include_directories(unit-test PUBLIC ${INCLUDE_DIR})
 	target_link_libraries(unit-test socks)
 endif()
