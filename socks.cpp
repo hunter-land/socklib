@@ -83,7 +83,70 @@ namespace sks {
 		}
 	}
 	std::string to_string(sockaddress sa) {
-		return sa.addrstring + (sa.port != 0 ? (std::string(":") + std::to_string(sa.port)) : "");
+		/*switch (sa.d) {
+			case unix:
+				//Nice and simple, print the path/name
+				return sa.addrstring;
+			case ipv4:
+				//Format of <ipv4 addr>:<port>
+				//			10.45.76.51:777
+				//We must convert sa.addr and port to readable characters
+				{
+					std::stringstream addr;
+					addr << sa.addr[3] << '.' << sa.addr[2] << '.' << sa.addr[1] << '.' << sa.addr[0] << ':' << sa.port;
+					return addr.str();
+				}
+			case ipv6:
+				//Format of [<ipv6 addr>]:<port>
+				//			[2001:db8:0000::1]:443
+				
+				//Two bytes per quartet (hex)
+				//[0]-[15]
+				{
+					std::stringstream addr;
+					addr << '[';
+					uint16_t last = 1;
+					for (size_t i = 1; i < 16; i += 2) {
+						//[i-1] and [i] accessable
+						uint16_t quartet = sa.addr[i - 1] << 8 | sa.addr [i];
+						if (quartet != 0 || i == 1) {
+							if (last == 0) {
+								addr << ':';
+							}
+							if (quartet != 0) {
+								addr << std::hex << std::to_string(quartet);
+							}
+							if (i < 16 - 1) {
+								addr << ':';
+							}
+						}
+						last = quartet;
+					}
+					addr << "]:";
+					addr << std::to_string(sa.port);
+					
+					return addr.str();
+				}
+			default:
+				return "";
+		}*/
+		//Format the address itself
+		//	unix:	<path>
+		//	ipv4:	<addr>:<port>
+		//	ipv6:	[<addr>]:<port>
+		//RFC 5952
+		std::string addrf;
+		switch (sa.d) {
+			case ipv6:
+				addrf += '[';
+				addrf += sa.addrstring;
+				addrf += ']';
+				break;
+			default:
+				addrf = sa.addrstring;
+				break;
+		}
+		return addrf + (sa.port != 0 ? (std::string(":") + std::to_string(sa.port)) : "");
 	}
 	
 	std::string errorstr(int e) {
@@ -149,6 +212,9 @@ namespace sks {
 		}
 		
 		return s;
+	}
+	std::string to_string(serror e) {
+		return errorstr(e);
 	}
 	std::string errorstr(errortype e) {
 		switch (e) {
@@ -282,10 +348,12 @@ namespace sks {
 		sockaddress s;
 		
 		s.d = (domain)saddr->ss_family;
+		size_t addrstrlen = 0;
 		switch (s.d) {
 			case ipv4:
 				{
 					sockaddr_in* a = (sockaddr_in*)saddr;
+					addrstrlen = INET_ADDRSTRLEN;
 					
 					memcpy(s.addr, &a->sin_addr, sizeof(a->sin_addr));
 					//a->sin_addr.s_addr = ntohl(a->sin_addr.s_addr);
@@ -295,6 +363,7 @@ namespace sks {
 			case ipv6:
 				{
 					sockaddr_in6* a = (sockaddr_in6*)saddr;
+					addrstrlen = INET6_ADDRSTRLEN;
 					
 					memcpy(s.addr, &a->sin6_addr, sizeof(a->sin6_addr));
 					//NtoH not needed for ipv6
@@ -322,12 +391,13 @@ namespace sks {
 				break;
 		}
 		
-		const size_t addrstrlen = std::max(INET6_ADDRSTRLEN, INET_ADDRSTRLEN);
-		char addrstr[addrstrlen];
+		//This section only succeeds if ipv6 or ipv4 is the domain
+		char* addrstr = (char*)std::malloc(addrstrlen);
 		const char* e = inet_ntop(s.d, &s.addr, addrstr, addrstrlen);
 		if (e != nullptr) {
 			s.addrstring = addrstr;
 		}
+		std::free(addrstr);
 		
 		return s;
 	}

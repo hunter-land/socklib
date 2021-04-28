@@ -68,6 +68,7 @@ namespace sks {
 	
 	std::string errorstr(int e);
 	std::string errorstr(serror e);
+	std::string to_string(serror e);
 	std::string errorstr(errortype e);
 	
 	struct sockaddress {
