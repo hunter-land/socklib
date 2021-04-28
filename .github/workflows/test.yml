@@ -9,7 +9,7 @@ jobs:
     - name: Build and run tests
       run: |
         mkdir build
-        cmake -S . -B build DDO_TESTS=ON
+        cmake -S . -B build -DDO_TESTS=ON
         cd build
         make socks_STATIC
         make socks_SHARED
