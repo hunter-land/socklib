@@ -15,11 +15,10 @@ extern "C" {
 #include <functional>
 #include <chrono>
 #include <stdexcept>
-//This is a bit jank, I know, but it is because of the domain enum's `unix` name.
-//The compiler things I am setting a number to a number if I don't undefine.
-//This should, however, be completely safe since it is restored at the end of this file
+//This is a bit jank, I know, but it is because of the domain enum's `unix` name
+//The compiler thinks I am setting a number to a number if I don't undefine
+//This might cause issues, but shouldn't since both __unix__ and __unix are available and should be perferred anyway
 #ifdef unix
-#define unix_but_i_need_the_name_for_my_enum unix
 #undef unix
 #endif
 
@@ -228,9 +227,3 @@ namespace sks {
 		runtime_error(std::string str, serror e);
 	};
 };
-
-//Restore unix macro (if it was ever present)
-#ifdef unix_but_i_need_the_name_for_my_enum
-#define unix unix_but_i_need_the_name_for_my_enum
-#undef unix_but_i_need_the_name_for_my_enum
-#endif
