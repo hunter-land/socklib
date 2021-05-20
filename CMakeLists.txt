@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.12)
-project(socklib)
+project(socklib VERSION 0.8.0 DESCRIPTION "A C++ wrapping of C BSD sockets")
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(INCLUDE_DIR include) #Local include directory for headers
+set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include") #Local include directory for headers
 
 #Options
 option(BUILD_SHARED_LIBS "Build shared library" ON)
 option(BUILD_STATIC_LIBS "Build static library" ON)
-option(DO_TESTS "Build and run tests (Uses static linking)" OFF)
+option(DO_TESTS "Build and run tests" OFF)
 
 #Default build type
 if (NOT CMAKE_BUILD_TYPE)
@@ -15,7 +15,7 @@ if (NOT CMAKE_BUILD_TYPE)
 endif()
 
 #Source files:
-set(SOURCE_FILES socks.cpp)
+set(SOURCE_FILES "socks.cpp")
 set(HEADER_FILES "${INCLUDE_DIR}/socks.hpp")
 
 #Building and installing libraries (shared and/or static)
@@ -30,18 +30,28 @@ endif()
 #Build each library class
 foreach (LCLASS IN LISTS LIBRARY_CLASSES)
 	set(LNAME socks_${LCLASS})
+	# Add this library as a target
 	add_library(${LNAME} ${LCLASS} ${SOURCE_FILES})
-	target_include_directories(${LNAME} PUBLIC ${INCLUDE_DIR}) #Use the same includes for building as we do for using the built library
+	# Library includes files from its own include dir
+	target_include_directories(${LNAME} PRIVATE ${INCLUDE_DIR})
+	# Set target properties for output name, version, and the related (public) headers
 	set_target_properties(${LNAME} PROPERTIES OUTPUT_NAME socks) #Same name for shared and static
-	install(TARGETS ${LNAME})
+	set_target_properties(${LNAME} PROPERTIES VERSION ${PROJECT_VERSION})
+	set_target_properties(${LNAME} PROPERTIES PUBLIC_HEADER ${HEADER_FILES})
+	# Declare target as something to be installed with the install target
+	install(TARGETS ${LNAME}
+			LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+			PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+	
+	#Installing into appropriate locations
+	#install(FILES ${HEADER_FILES} DESTINATION include)
 endforeach()
 
-#Installing into appropriate locations
-install(FILES ${HEADER_FILES} DESTINATION include)
 
 #Tests
 if (DO_TESTS)
 	add_executable(unit-test tests/unit.cpp)
-	target_include_directories(unit-test PUBLIC ${INCLUDE_DIR})
-	target_link_libraries(unit-test socks)
+	#Link library
+	find_library(SOCKLIB NAMES socks)
+	target_link_libraries(unit-test PRIVATE ${SOCKLIB})
 endif()
