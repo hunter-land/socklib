@@ -52,7 +52,7 @@ if (DO_TESTS)
 	add_executable(unit-test tests/unit.cpp)
 	# Link socks library
 	find_library(SOCKLIB NAMES socks)
-	target_link_libraries(unit-test PRIVATE ${SOCKLIB})
+	target_link_libraries(unit-test PRIVATE socks)
 	# Unit test plays both sides, it needs threads
 	find_package(Threads REQUIRED)
 	target_link_libraries(unit-test PRIVATE Threads::Threads)
