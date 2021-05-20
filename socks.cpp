@@ -955,7 +955,8 @@ namespace sks {
 		socklen_t slen = sizeof(saddr);
 		
 		if (getsockname(m_sockid, (sockaddr*)&saddr, &slen) == -1) {
-			memset(&saddr + sizeof(sa_family_t), 0, sizeof(saddr) - sizeof(sa_family_t));
+			//Set address family value and zero the rest
+			memset(&saddr + sizeof(sa_family_t), 0, slen - sizeof(sa_family_t));
 			return saddr;
 		}
 		
@@ -968,7 +969,8 @@ namespace sks {
 		socklen_t slen = sizeof(saddr);
 		
 		if (getpeername(m_sockid, (sockaddr*)&saddr, &slen) == -1) {
-			memset(&saddr + sizeof(sa_family_t), 0, sizeof(saddr) - sizeof(sa_family_t));
+			//Set address family value and zero the rest
+			memset(&saddr + sizeof(sa_family_t), 0, slen - sizeof(sa_family_t));
 			return saddr;
 		}
 		
