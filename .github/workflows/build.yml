@@ -6,11 +6,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Build objects
+    - name: Build objects and install
       run: |
         mkdir build
         cmake -S . -B build -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON
         cd build
-        make socks_STATIC
-        make socks_SHARED
+        make install
       

@@ -9,7 +9,7 @@ jobs:
     - name: Build and run tests
       run: |
         mkdir build
-        cmake -S . -B build -DDO_TESTS=ON
+        cmake -S . -B build -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON -DDO_TESTS=ON
         cd build
         make install
         make unit-test
