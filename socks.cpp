@@ -546,10 +546,13 @@ namespace sks {
 		se.erno = 0;
 		
 		#ifndef _WIN32 //POSIX, for normal people
-			se.erno = setsockopt(0, level, o, (int*)&value, sizeof(value));
+			int r = setsockopt(0, level, o, (int*)&value, sizeof(value));
 		#else //Whatever-this-is, for windows people
-			se.erno = setsockopt(m_sockid, level, o, (char*)&value, sizeof(value));
+			int r = setsockopt(m_sockid, level, o, (char*)&value, sizeof(value));
 		#endif
+		if (r != 0) {
+			se.erno = errno;
+		}
 		
 		return se;
 	}
@@ -589,7 +592,7 @@ namespace sks {
 		#endif
 		
 		if (r != 0) {
-			return { BSD, r };
+			return { BSD, errno };
 		}
 		
 		m_rxto = time;
@@ -611,7 +614,7 @@ namespace sks {
 		#endif
 		
 		if (r != 0) {
-			return { BSD, r };
+			return { BSD, errno };
 		}
 		
 		m_txto = time;
