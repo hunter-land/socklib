@@ -11,7 +11,7 @@ jobs:
         cmake -S . -B build -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON
         cd build
         sudo make install
-        ldconfig
+        sudo ldconfig
         echo "Library built and installed"
         cd ../tests
         cmake -S . -B build
