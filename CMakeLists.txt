@@ -34,7 +34,7 @@ foreach (LCLASS IN LISTS LIBRARY_CLASSES)
 	# Add this library as a target
 	add_library(${LNAME} ${LCLASS} ${SOURCE_FILES})
 	# Library includes files from its own include dir
-	target_include_directories(${LNAME} PRIVATE ${INCLUDE_DIR})
+	target_include_directories(${LNAME} PUBLIC ${INCLUDE_DIR})
 	# Set target properties for output name, version, and the related (public) headers
 	set_target_properties(${LNAME} PROPERTIES OUTPUT_NAME socks) #Same name for shared and static
 	set_target_properties(${LNAME} PROPERTIES VERSION ${PROJECT_VERSION})
