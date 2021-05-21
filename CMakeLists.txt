@@ -7,7 +7,6 @@ set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include") #Local include directory for head
 #Options
 option(BUILD_SHARED_LIBS "Build shared library" ON)
 option(BUILD_STATIC_LIBS "Build static library" ON)
-option(DO_TESTS "Build and run tests" OFF)
 
 #Default build type
 if (NOT CMAKE_BUILD_TYPE) #If the user hasn't set it, we set it
@@ -44,16 +43,3 @@ foreach (LCLASS IN LISTS LIBRARY_CLASSES)
 			LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 			PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 endforeach()
-
-
-#Tests
-if (DO_TESTS)
-	# unit-test is the target for unit testing
-	add_executable(unit-test tests/unit.cpp)
-	# Link socks library
-	find_library(SOCKLIB NAMES socks)
-	target_link_libraries(unit-test PRIVATE socks)
-	# Unit test plays both sides, it needs threads
-	find_package(Threads REQUIRED)
-	target_link_libraries(unit-test PRIVATE Threads::Threads)
-endif()
