@@ -546,7 +546,7 @@ namespace sks {
 		se.erno = 0;
 		
 		#ifndef _WIN32 //POSIX, for normal people
-			int r = setsockopt(0, level, o, (int*)&value, sizeof(value));
+			int r = setsockopt(m_sockid, level, o, (int*)&value, sizeof(value));
 		#else //Whatever-this-is, for windows people
 			int r = setsockopt(m_sockid, level, o, (char*)&value, sizeof(value));
 		#endif
@@ -566,7 +566,7 @@ namespace sks {
 		int v;
 		socklen_t vlen = sizeof(v);
 		#ifndef _WIN32 //POSIX, for normal people
-			see->erno = getsockopt(0, level, o, (int*)&v, &vlen);
+			see->erno = getsockopt(m_sockid, level, o, (int*)&v, &vlen);
 		#else //Whatever-this-is, for windows people
 			see->erno = getsockopt(m_sockid, level, o, (char*)&v, &vlen);
 		#endif
