@@ -487,9 +487,9 @@ void con_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 	sks::socket_base* hc = nullptr;
 	
 	//We wait 5 seconds for a connection attempt, and rule the test as a failure if we get none
-	e = h.canread(5000);
-	failures += verify(prefix + "h.canread(5s)", e, 1, false);
-	if (e != 1) {
+	se = h.canread(5000);
+	failures += verify(prefix + "h.canread(5s)", se, snoerr);
+	if (se.erno != 0) {
 		//std::cerr << "No incoming connection requests after 5 seconds" << std::endl;
 		
 		failures += 8;
@@ -555,9 +555,9 @@ void con_proper_t2(int& failures, sks::domain d, sks::protocol p) {
 	failures += verify(prefix + "c.connect(...)", se, snoerr);
 	
 	//We wait 5 seconds for the accept() call, and rule the test as a failure if it takes more than 5 seconds
-	e = c->canwrite(5000);
-	failures += verify(prefix + "c.canwrite(5s)", e, 1, false);
-	if (e != 1) {
+	se = c->canwrite(5000);
+	failures += verify(prefix + "c.canwrite(5s)", se, snoerr);
+	if (se.erno != 0) {
 		//std::cerr << "No incoming connection requests after 5 seconds" << std::endl;
 		failures += 5;
 		return;
