@@ -861,39 +861,79 @@ namespace sks {
 		
 		return d;
 	}
-	int socket_base::canread(int timeoutms) {
+	serror socket_base::canread(int timeoutms) {
+		serror e;
+		e.type = BSD;
+		e.erno = 0;
+		
 		pollfd pfd;
 		pfd.fd = m_sockid;
 		pfd.events = POLLIN;
 		
 		#ifndef _WIN32
-			if (poll(&pfd, 1, timeoutms) == -1) { //>0 = success, 0 = timeout, -1 = error
-				return -errno;
+			int r = poll(&pfd, 1, timeoutms);
+			switch (r) { //>0 = success, 0 = timeout, -1 = error
+				case 0: //Timeout
+					e.erno = EAGAIN;
+					break;
+				case -1: //Error
+					e.erno = errno;
+					break;
+				default: //Success
+					break;
 			}
 		#else
-			if (WSAPoll(&pfd, 1, timeoutms) == SOCKET_ERROR) { //>0 = success, 0 = timeout, SOCKET_ERROR = error
-				return -WSAGetLastError();
+			int r = WSAPoll(&pfd, 1, timeoutms);
+			switch (r) { //>0 = success, 0 = timeout, SOCKET_ERROR = error
+				case 0: //Timeout
+					e.erno = WSAEWOULDBLOCK;
+					break;
+				case -1: //Error
+					e.erno = WSAGetLastError();
+					break;
+				default: //Success
+					break;
 			}
 		#endif
 		
-		return (pfd.revents & POLLIN) > 0;
+		return e; //(pfd.revents & POLLIN) > 0
 	}
-	int socket_base::canwrite(int timeoutms) {
+	serror socket_base::canwrite(int timeoutms) {
+		serror e;
+		e.type = BSD;
+		e.erno = 0;
+		
 		pollfd pfd;
 		pfd.fd = m_sockid;
 		pfd.events = POLLOUT;
 		
 		#ifndef _WIN32
-			if (poll(&pfd, 1, timeoutms) == -1) { //>0 = success, 0 = timeout, -1 = error
-				return -errno;
+			int r = poll(&pfd, 1, timeoutms);
+			switch (r) { //>0 = success, 0 = timeout, -1 = error
+				case 0: //Timeout
+					e.erno = EAGAIN;
+					break;
+				case -1: //Error
+					e.erno = errno;
+					break;
+				default: //Success
+					break;
 			}
 		#else
-			if (WSAPoll(&pfd, 1, timeoutms) == SOCKET_ERROR) { //>0 = success, 0 = timeout, SOCKET_ERROR = error
-				return -WSAGetLastError();
+			int r = WSAPoll(&pfd, 1, timeoutms);
+			switch (r) { //>0 = success, 0 = timeout, SOCKET_ERROR = error
+				case 0: //Timeout
+					e.erno = WSAEWOULDBLOCK;
+					break;
+				case -1: //Error
+					e.erno = WSAGetLastError();
+					break;
+				default: //Success
+					break;
 			}
 		#endif
 		
-		return (pfd.revents & POLLOUT) > 0;
+		return e; //(pfd.revents & POLLOUT) > 0
 	}
 	//Info
 	domain socket_base::getDomain() {

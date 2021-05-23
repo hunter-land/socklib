@@ -199,10 +199,10 @@ namespace sks {
 		//How many bytes are available to be read (negative for error)
 		//Returns the negative BSD error (if any), otherwise positive
 		int availdata();
+		//Returns no error if reading can be done, otherwise returns error
+		serror canread(int timeoutms = 0);
 		//Returns the negative BSD error (if any), otherwise positive
-		int canread(int timeoutms = 0);
-		//Returns the negative BSD error (if any), otherwise positive
-		int canwrite(int timeoutms = 0);
+		serror canwrite(int timeoutms = 0);
 		//Get the domain of this socket
 		domain getDomain();
 		//Get the protocol/type of this socket
