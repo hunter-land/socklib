@@ -44,16 +44,27 @@ CMake is used to produce build files and can be from root directory with
 	make install    #Build and install the library on the system
 	```
 	#### Windows
-	Navigate to the build folder and open the Visual Studio solution.
+	Navigate to the build folder and open the Visual Studio solution (you may need to open it as an administrator).
 	In Visual Studio, you can either build all targets or right click the `install` target and select `build`
 4. Update your linker so it sees the newly installed library. 
 	```bash
-	ldconfig    	#creates the necessary links and cache
+	ldconfig        #creates the necessary links and cache
 	```
 
 
 ## Usage
 Specific usage details are given in the documentation
+### Windows considerations
+Windows requires the program to initialize their sockets, so you must include intialization in your code before any calls to the library. An example code block is provided below.
+```cpp
+// Initialize Winsock
+WSADATA wsaData;
+int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData); //Initialize version 2.2
+if (iResult != 0) {
+	std::cerr << "WSAStartup failed: " << iResult << std::endl;
+	return 1;
+}
+```
 ### Basic, single-connection server
 Wait for a client to connect on a given port, send a message, and wait for a single reply before closing the connection.
 ```cpp
