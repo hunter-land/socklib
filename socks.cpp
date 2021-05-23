@@ -50,6 +50,8 @@ namespace sks {
 				return "IPv4";
 			case ipv6:
 				return "IPv6";
+			//case ax25:
+			//	return "AX.25";
 			default:
 				return "";
 		}
@@ -83,53 +85,18 @@ namespace sks {
 		}
 	}
 	std::string to_string(sockaddress sa) {
-		/*switch (sa.d) {
-			case unix:
-				//Nice and simple, print the path/name
-				return sa.addrstring;
-			case ipv4:
-				//Format of <ipv4 addr>:<port>
-				//			10.45.76.51:777
-				//We must convert sa.addr and port to readable characters
-				{
-					std::stringstream addr;
-					addr << sa.addr[3] << '.' << sa.addr[2] << '.' << sa.addr[1] << '.' << sa.addr[0] << ':' << sa.port;
-					return addr.str();
-				}
-			case ipv6:
-				//Format of [<ipv6 addr>]:<port>
-				//			[2001:db8:0000::1]:443
-				
-				//Two bytes per quartet (hex)
-				//[0]-[15]
-				{
-					std::stringstream addr;
-					addr << '[';
-					uint16_t last = 1;
-					for (size_t i = 1; i < 16; i += 2) {
-						//[i-1] and [i] accessable
-						uint16_t quartet = sa.addr[i - 1] << 8 | sa.addr [i];
-						if (quartet != 0 || i == 1) {
-							if (last == 0) {
-								addr << ':';
-							}
-							if (quartet != 0) {
-								addr << std::hex << std::to_string(quartet);
-							}
-							if (i < 16 - 1) {
-								addr << ':';
-							}
-						}
-						last = quartet;
-					}
-					addr << "]:";
-					addr << std::to_string(sa.port);
-					
-					return addr.str();
-				}
-			default:
-				return "";
-		}*/
+		
+		socklen_t slen;
+		sockaddr_storage saddr = satosa(sa, &slen);
+		
+		char hostName[256];
+		int r = getnameinfo((sockaddr*)&saddr, slen, hostName, 256, nullptr, 0, NI_NUMERICHOST); //NI_NUMERICHOST
+		if (r != 0) {
+			//Malformed address
+			return std::string("Malformed address: ") + errorstr(r);
+		}
+		//hostName is now a numeric string representation of the address (no port)
+		
 		//Format the address itself
 		//	unix:	<path>
 		//	ipv4:	<addr>:<port>
@@ -139,11 +106,11 @@ namespace sks {
 		switch (sa.d) {
 			case ipv6:
 				addrf += '[';
-				addrf += sa.addrstring;
+				addrf += hostName;
 				addrf += ']';
 				break;
 			default:
-				addrf = sa.addrstring;
+				addrf = hostName;
 				break;
 		}
 		return addrf + (sa.port != 0 ? (std::string(":") + std::to_string(sa.port)) : "");
@@ -422,6 +389,8 @@ namespace sks {
 				break;
 		}
 	}
+	
+	
 	
 	//Constructors and destructors
 	socket_base::socket_base(sks::domain d, sks::protocol t, int p) {

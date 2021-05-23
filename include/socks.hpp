@@ -27,6 +27,7 @@ namespace sks {
 		unix = AF_UNIX,
 		ipv4 = AF_INET,
 		ipv6 = AF_INET6
+		//ax25 = AF_AX25
 	};
 	std::string to_string(domain d);
 	enum protocol {
@@ -46,8 +47,7 @@ namespace sks {
 		debug = SO_DEBUG,			//bool
 		noroute = SO_DONTROUTE,		//bool
 		oobil = SO_OOBINLINE, 		//bool
-		reuseaddr = SO_REUSEADDR,	//bool
-		error = SO_ERROR			//int
+		reuseaddr = SO_REUSEADDR	//bool
 	};
 	
 	enum errortype { //Error type/source
@@ -76,12 +76,12 @@ namespace sks {
 	struct sockaddress {
 		//Default sockaddress
 		sockaddress(); //Zeros the addr[] field
-		//Attempt to get a sockaddress based on a string input (url, ip:port, etc)
+		//Attempt to get a sockaddress based on a string input (url, ip, etc)
 		sockaddress(std::string str, uint16_t port = 0, domain d = (domain)AF_UNSPEC, protocol p = (protocol)0);
 		
 		domain d;
-		uint8_t addr[16]; //Network byte order
-		std::string addrstring = "";
+		uint8_t addr[16]; //Network byte order (Used for ipv4 and ipv6 addresses)
+		std::string addrstring = ""; //String representation of address (Used for unix addresses)
 		uint16_t port = 0;
 	};
 	std::string to_string(sockaddress sa);
