@@ -27,10 +27,12 @@ This library is built using `cmake` and assumes you have it installed. If you do
 
 ### Installation
 CMake is used to produce build files and can be from root directory with
+
 1. Download the source code
 	```bash
 	git clone https://github.com/hunter-land/socklib.git
 	```
+
 2. Run CMake
 	`CMAKE_BUILD_TYPE` can be set to `Release` (default) or `Debug` with `-DCMAKE_BUILD_TYPE=<value>`
     Shared vs Static can selected with `-DBUILD_SHARED_LIBS=<value>` with `ON` for shared and `OFF` for static
@@ -38,6 +40,7 @@ CMake is used to produce build files and can be from root directory with
 	#This calls cmake, which will place system-specific build files in the build directory (./build)
 	cmake -S . -B ./build
 	```
+
 3. Build the generated project (This step varies based on your system and configuration, but the rule of thumb for each system is given)
 	#### Linux
 	```bash
@@ -47,6 +50,7 @@ CMake is used to produce build files and can be from root directory with
 	#### Windows
 	Navigate to the build folder and open the Visual Studio solution (you may need to open it as an administrator).
 	In Visual Studio, you can either build all targets or right click the `install` target and select `build`
+
 4. Update your linker so it sees the newly installed library. 
 	```bash
 	ldconfig        #creates the necessary links and cache
@@ -137,4 +141,5 @@ int main() {
 
 ## Contact
 Hunter Land - hunterland4.5.7@gmail.com - [Block#2716](https://discordapp.com/users/201452615890894848)
+
 Project Link: https://github.com/hunter-land/socklib
