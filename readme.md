@@ -33,6 +33,7 @@ CMake is used to produce build files and can be from root directory with
 	```
 2. Run CMake
 	`CMAKE_BUILD_TYPE` can be set to `Release` (default) or `Debug` with `-DCMAKE_BUILD_TYPE=<value>`
+    Shared vs Static can selected with `-DBUILD_SHARED_LIBS=<value>` with `ON` for shared and `OFF` for static
 	```bash
 	#This calls cmake, which will place system-specific build files in the build directory (./build)
 	cmake -S . -B ./build
