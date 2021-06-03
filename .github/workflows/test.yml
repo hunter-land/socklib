@@ -2,13 +2,29 @@ name: Test
 on: [ push, pull_request ]
 
 jobs:
-  test-ubuntu:
+  test-ubuntu-shared:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Build and run tests
+    - name: Build and run tests with shared linking
       run: |
-        cmake -S . -B build -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON
+        cmake -S . -B build -DBUILD_SHARED_LIBS=ON
+        cd build
+        sudo make install
+        sudo ldconfig
+        echo "Library built and installed"
+        cd ../tests
+        cmake -S . -B build
+        cd build
+        make unit-test
+        ./unit-test
+  test-ubuntu-static:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build and run tests with static linking
+      run: |
+        cmake -S . -B build -DBUILD_SHARED_LIBS=OFF
         cd build
         sudo make install
         sudo ldconfig

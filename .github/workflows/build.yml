@@ -2,15 +2,24 @@ name: Build
 on: [ push, pull_request ]
 
 jobs:
-  build-ubuntu:
+  build-ubuntu-shared:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Build objects
+    - name: Build shared library
       run: |
         mkdir build
-        cmake -S . -B build -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON
+        cmake -S . -B build -DBUILD_SHARED_LIBS=ON
         cd build
-        make socks_STATIC
-        make socks_SHARED
+        make
+  build-ubuntu-static:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build static library
+      run: |
+        mkdir build
+        cmake -S . -B build -DBUILD_SHARED_LIBS=OFF
+        cd build
+        make
       
