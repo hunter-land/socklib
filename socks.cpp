@@ -146,7 +146,7 @@ namespace sks {
 				s = errorstr(e.erno);
 				break;
 			case USER:
-				s = "Packetfilter [" + e.pf_index + "] failed with code " + e.erno;
+				s = std::string("Packetfilter [") + std::to_string(e.pf_index) + "] failed with code " + std::to_string(e.erno);
 				break;
 			case CLASS:
 				switch (e.erno) {
