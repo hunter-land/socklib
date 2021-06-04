@@ -511,7 +511,7 @@ void con_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 		return;
 	}
 	
-	hc->setpre(reversePkt); //Cannot fail, no check needed (but we *do* need to still verify it worked on client)
+	hc->setpre(reversePkt, 0); //Cannot fail, no check needed (but we *do* need to still verify it worked on client)
 	
 	se = hc->setrxtimeout(5000000); //microseconds
 	failures += verify(prefix + "hc.setrxtimeout(5s)", se, snoerr);
@@ -637,7 +637,7 @@ void conl_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 
 	while (sockready != 2) {}
 
-	b.setpre(reversePkt); //Cannot fail; no verify; still need to verify it worked on client recvfrom
+	b.setpre(reversePkt, 0); //Cannot fail; no verify; still need to verify it worked on client recvfrom
 
 	se = b.setrxtimeout(5000000); //microseconds
 	failures += verify(prefix + "b.setrxtimeout(5s)", se, snoerr);
