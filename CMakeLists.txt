@@ -20,7 +20,6 @@ add_library(socks ${SOURCE_FILES})
 set_target_properties(socks PROPERTIES VERSION ${PROJECT_VERSION})
 set_target_properties(socks PROPERTIES PUBLIC_HEADER ${HEADER_FILES})
 # Declare target as something to be installed with the install target
-install(TARGETS ${LNAME}
+install(TARGETS socks
 		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-		#PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(FILES ${HEADER_FILES} TYPE INCLUDE)
