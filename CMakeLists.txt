@@ -16,12 +16,11 @@ set(SOURCE_FILES "socks.cpp")
 set(HEADER_FILES "${INCLUDE_DIR}/socks.hpp")
 
 add_library(socks ${SOURCE_FILES})
-# Library includes files from its own include dir
-target_include_directories(socks PUBLIC ${INCLUDE_DIR})
 # Set target properties for version and the related (public) headers
 set_target_properties(socks PROPERTIES VERSION ${PROJECT_VERSION})
 set_target_properties(socks PROPERTIES PUBLIC_HEADER ${HEADER_FILES})
 # Declare target as something to be installed with the install target
 install(TARGETS ${LNAME}
-		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+		#PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES ${HEADER_FILES} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
