@@ -146,7 +146,7 @@ namespace sks {
 				s = errorstr(e.erno);
 				break;
 			case USER:
-				s = "A packfunc failed with code " + e.erno;
+				s = "Packetfilter [" + e.pf_index + "] failed with code " + e.erno;
 				break;
 			case CLASS:
 				switch (e.erno) {
@@ -687,8 +687,14 @@ namespace sks {
 			throw sks::runtime_error(msg, serror{ BSD, errno });
 		}
 		socket_base s(newsockid);
-		s.setpre(pre());
-		s.setpost(post());
+
+		//Pass on pre-send and post-recv functions
+		for (auto pair : m_presend) {
+			s.setpre(pair.second, pair.first);
+		}
+		for (auto pair : m_postrecv) {
+			s.setpost(pair.second, pair.first);
+		}
 		return s;
 	}
 	serror socket_base::connect(std::string remote, uint16_t port) {
@@ -769,6 +775,7 @@ namespace sks {
 					//User's program has returned an error code
 					e.type = USER;
 					e.erno = r;
+					e.pf_index = it->first;
 					return e;
 				}
 			}
@@ -802,6 +809,7 @@ namespace sks {
 					//Failure; Abort
 					e.type = USER;
 					e.erno = r;
+					e.pf_index = it->first;
 					return e;
 				}
 			}
@@ -947,16 +955,16 @@ namespace sks {
 	}
 	
 	//Pre and Post functions
-	void socket_base::setpre(packfunc f, size_t index) {
+	void socket_base::setpre(packetfilter f, size_t index) {
 		m_presend[index] = f;
 	}
-	void socket_base::setpost(packfunc f, size_t index) {
+	void socket_base::setpost(packetfilter f, size_t index) {
 		m_postrecv[index] = f;
 	}
-	packfunc socket_base::pre(size_t index) {
+	packetfilter socket_base::pre(size_t index) {
 		return m_presend[index];
 	}
-	packfunc socket_base::post(size_t index) {
+	packetfilter socket_base::post(size_t index) {
 		return m_postrecv[index];
 	}
 	

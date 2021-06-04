@@ -65,7 +65,9 @@ namespace sks {
 	};
 	struct serror { //Socket error
 		errortype type; //Error type/source
-		int erno; //Error value
+		int erno; //Error value (If type == USER, value is from packet filter)
+		
+		size_t pf_index; //Index of packetfilter (Valid only when type == USER)
 	};
 	
 	std::string errorstr(int e);
@@ -97,7 +99,8 @@ namespace sks {
 		std::vector<uint8_t> data;
 	};
 	
-	typedef std::function<int(packet&)> packfunc;
+	typedef std::function<int(packet&)> packetfilter;
+	typedef packetfilter packfunc; //Backwards compatibility with older version, do not use in new code
 	
 	class socket_base {
 	protected:
@@ -211,13 +214,16 @@ namespace sks {
 		int getSubprotocol();
 		
 		//Set the pre-send function
-		void setpre(packfunc f, size_t index = 0);
+		void setpre(packetfilter f, size_t index);
 		//Set the post-recv function
-		void setpost(packfunc f, size_t index = 0);
-		//Set the pre-send function
-		packfunc pre(size_t index = 0);
-		//Set the post-recv function
-		packfunc post(size_t index = 0);
+		void setpost(packetfilter f, size_t index);
+		//Get the pre-send function at index
+		packetfilter pre(size_t index);
+		//Get the post-recv function at index
+		packetfilter post(size_t index);
+		//Set function to run on socket deconstruction (Useful for any filters which are state-ful)
+		//void setcleanup(std::function<void()> f, size_t index);
+		//
 	};
 
 	class runtime_error : public std::runtime_error {
