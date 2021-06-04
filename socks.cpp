@@ -1,6 +1,6 @@
 #define _POSIX_C_SOURCE 200112L //Needed to get addrinfo and related functions <netdb.h>
 
-#include <socks.hpp>
+#include "include/socks.hpp"
 extern "C" {	
 	//Sockets
 	#ifndef _WIN32
