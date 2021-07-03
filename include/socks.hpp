@@ -23,6 +23,10 @@ extern "C" {
 #endif
 
 namespace sks {
+	extern const uint16_t version_major; //For incompatible API changes
+	extern const uint16_t version_minor; //For added functionality in a backwards compatible manner
+	extern const uint16_t version_patch; //For backwards compatible bug fixes
+	
 	enum domain {
 		unix = AF_UNIX,
 		ipv4 = AF_INET,
@@ -30,15 +34,17 @@ namespace sks {
 		//ax25 = AF_AX25
 	};
 	std::string to_string(domain d);
-	enum protocol {
-		tcp = SOCK_STREAM,
-		udp = SOCK_DGRAM,
+	enum type {
+		//tcp = SOCK_STREAM, //For back-compatibility in this verison, depricated
+		stream = SOCK_STREAM,
+		//udp = SOCK_DGRAM, //For back-compatibility in this verison, depricated
+		dgram = SOCK_DGRAM,
 		seq = SOCK_SEQPACKET,
 		rdm = SOCK_RDM,
 		raw = SOCK_RAW
 	};
-	std::string to_string(protocol p);
-	bool connectionless(protocol p); //Check if a type/protocol is connected or connectionless
+	std::string to_string(type p);
+	bool connectionless(type p); //Check if a type is connected or connectionless
 	enum option {
 		broadcast = SO_BROADCAST,	//bool
 		keepalive = SO_KEEPALIVE,	//bool
@@ -79,7 +85,7 @@ namespace sks {
 		//Default sockaddress
 		sockaddress(); //Zeros the addr[] field
 		//Attempt to get a sockaddress based on a string input (url, ip, etc)
-		sockaddress(std::string str, uint16_t port = 0, domain d = (domain)AF_UNSPEC, protocol p = (protocol)0);
+		sockaddress(std::string str, uint16_t port = 0, domain d = (domain)AF_UNSPEC, type t = (type)0);
 		
 		domain d;
 		uint8_t addr[16]; //Network byte order (Used for ipv4 and ipv6 addresses)
@@ -106,8 +112,8 @@ namespace sks {
 	protected:
 		int m_sockid = -1; //Socket fd value
 		domain m_domain; //Domain of this socket
-		protocol m_protocol; //Type of this socket
-		int m_p; //Specific protocol of this socket
+		type m_type; //Type of this socket
+		int m_protocol; //Specific protocol of this socket
 		bool m_valid = false; //Is socket connected (connected protos), bound (connection-less protos), or listening (connected protos)
 		bool m_listening = false; //Is socket listening (connected protocols only)
 		bool m_bound = false; //Is socket bound (explicitly only; not from connect(...) calls)
@@ -124,7 +130,7 @@ namespace sks {
 		sockaddr_storage setreminfo(); //Update m_rem_addr
 	public:
 		//Create a new socket
-		socket_base(sks::domain d, sks::protocol t = sks::protocol::tcp, int p = 0);
+		socket_base(sks::domain d, sks::type t = sks::type::stream, int p = 0);
 		//Wrap an existing C socket file descriptor with this class
 		//Constructor assumes sockfd is in a valid state (able to send/recv) and not a listener
 		socket_base(int sockfd);
@@ -209,9 +215,9 @@ namespace sks {
 		//Get the domain of this socket
 		domain getDomain();
 		//Get the protocol/type of this socket
-		protocol getProtocol();
-		//Get the sub protocol of this socket
-		int getSubprotocol();
+		type getType();
+		//Get the protocol of this socket
+		int getProtocol();
 		
 		//Set the pre-send function
 		void setpre(packetfilter f, size_t index);

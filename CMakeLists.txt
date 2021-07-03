@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(socklib VERSION 0.8.0 DESCRIPTION "A C++ wrapping of C BSD sockets")
+project(socklib VERSION 0.9.0 DESCRIPTION "A C++ wrapping of C BSD sockets")
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include") #Local include directory for headers

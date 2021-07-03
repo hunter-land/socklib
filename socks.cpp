@@ -41,6 +41,9 @@ extern "C" {
 #include <stdexcept>
 
 namespace sks {
+	const uint16_t version_major = 0; //For incompatible API changes
+	const uint16_t version_minor = 9; //For added functionality in a backwards compatible manner
+	const uint16_t version_patch = 0; //For backwards compatible bug fixes
 	
 	std::string to_string(domain d) {
 		switch (d) {
@@ -56,12 +59,12 @@ namespace sks {
 				return "";
 		}
 	}
-	std::string to_string(protocol p) {
-		switch (p) {
-			case tcp:
-				return "tcp";
-			case udp:
-				return "udp";
+	std::string to_string(type t) {
+		switch (t) {
+			case stream:
+				return "stream";
+			case dgram:
+				return "datagram";
 			case seq:
 				return "seq";
 			case rdm:
@@ -72,12 +75,12 @@ namespace sks {
 				return "";
 		}
 	}
-	bool connectionless(protocol p) {
-		switch (p) {
-			case tcp:
+	bool connectionless(type t) {
+		switch (t) {
+			case stream:
 			case seq:
 				return false;
-			case udp:
+			case dgram:
 			case rdm:
 			case raw:
 			default:
@@ -199,11 +202,11 @@ namespace sks {
 	sockaddress::sockaddress() {
 		memset(&addr, 0, sizeof(addr));
 	}
-	sockaddress::sockaddress(std::string str, uint16_t port, domain d, protocol p) : sockaddress() {
+	sockaddress::sockaddress(std::string str, uint16_t port, domain d, type t) : sockaddress() {
 		addrinfo hint;
 		memset(&hint, 0, sizeof(hint));
 		hint.ai_family = d;
-		hint.ai_socktype = p;
+		hint.ai_socktype = t;
 		hint.ai_flags = AI_CANONNAME | AI_PASSIVE;
 		
 		addrinfo* results = nullptr;
@@ -393,9 +396,10 @@ namespace sks {
 	
 	
 	//Constructors and destructors
-	socket_base::socket_base(sks::domain d, sks::protocol t, int p) {
+	socket_base::socket_base(sks::domain d, sks::type t, int p) {
 		m_domain = d;
-		m_protocol = t;
+		m_type = t;
+		m_protocol = p;
 		m_sockid = socket(d, t, p);
 		if (m_sockid == -1) {
 			//throw exception here
@@ -420,7 +424,7 @@ namespace sks {
 		#endif
 		
 		if (e == 0) {
-			m_protocol = (sks::protocol)t;
+			m_type = (sks::type)t;
 		}
 		
 		sockaddr_storage lsaddr = setlocinfo();
@@ -432,7 +436,7 @@ namespace sks {
 		for (size_t i = sizeof(lsaddr.ss_family); i < sizeof(sockaddr_storage); i++) {
 			if (((uint8_t*)&lsaddr)[i] != 0) {
 				m_bound = true;
-				if (connectionless(m_protocol)) {
+				if (connectionless(m_type)) {
 					m_valid = true;
 				}
 				break;				
@@ -440,7 +444,7 @@ namespace sks {
 		}
 		
 		//If using a connected protocol, check for an active connection
-		if (!connectionless(m_protocol)) {
+		if (!connectionless(m_type)) {
 			for (size_t i = sizeof(rsaddr.ss_family); i < sizeof(sockaddr_storage); i++) {
 				if (((uint8_t*)&rsaddr)[i] != 0) {
 					m_valid = true;
@@ -464,6 +468,7 @@ namespace sks {
 		//std::cout << "Swapping socket #" << s.m_sockid << " with socket #" << m_sockid << std::endl; 
 		std::swap(m_sockid, s.m_sockid);
 		m_domain = std::move(s.m_domain);
+		m_type = std::move(s.m_type);
 		m_protocol = std::move(s.m_protocol);
 		
 		m_valid = std::move(s.m_valid);
@@ -638,7 +643,7 @@ namespace sks {
 			return { BSD, errno };
 		} else {
 			setlocinfo();
-			if (connectionless(m_protocol)) {
+			if (connectionless(m_type)) {
 				m_valid = true;
 			}
 			m_bound = true;
@@ -656,10 +661,12 @@ namespace sks {
 			return e;
 		}
 		if (::listen(m_sockid, backlog) == -1) {
+			//Failure
 			e.type = BSD;
 			e.erno = errno;
 			return e;
 		} else {
+			//Success
 			m_valid = true;
 			m_listening = true;
 			return e;
@@ -698,7 +705,7 @@ namespace sks {
 		return s;
 	}
 	serror socket_base::connect(std::string remote, uint16_t port) {
-		return connect(sockaddress(remote, port, m_domain, m_protocol));
+		return connect(sockaddress(remote, port, m_domain, m_type));
 	}
 	serror socket_base::connect(sockaddress sa) {
 		socklen_t slen = sizeof(sockaddr_storage);
@@ -820,7 +827,7 @@ namespace sks {
 		anytoloop(saddr);
 		//std::cout << "Converted any to loop in sendto" << std::endl;
 		sockaddr* saddrptr = (sockaddr*)&saddr;
-		if (!connectionless(m_protocol)) { //Connected sockets should have a NULL address (otherwise sendto *might* return errors such as EISCONN)
+		if (!connectionless(m_type)) { //Connected sockets should have a NULL address (otherwise sendto *might* return errors such as EISCONN)
 			saddrptr = NULL;
 			slen = 0;
 		}
@@ -947,11 +954,11 @@ namespace sks {
 	domain socket_base::getDomain() {
 		return m_domain;
 	}
-	protocol socket_base::getProtocol() {
-		return m_protocol;
+	type socket_base::getType() {
+		return m_type;
 	}
-	int socket_base::getSubprotocol() {
-		return m_p;
+	int socket_base::getProtocol() {
+		return m_protocol;
 	}
 	
 	//Pre and Post functions
