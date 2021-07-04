@@ -177,7 +177,7 @@ static const sks::runtime_error norte(sks::errorstr(0), snoerr);
 static std::vector<uint8_t> allBytes; //Treat as const
 static std::vector<uint8_t> allBytesReversed; //Treat as const
 static const std::vector<sks::domain> allDomains = { sks::unix, sks::ipv4, sks::ipv6 };
-static const std::vector<sks::protocol> allProtocols = { sks::tcp, sks::udp, sks::seq, sks::rdm, sks::raw };
+static const std::vector<sks::type> allProtocols = { sks::stream, sks::dgram, sks::seq, sks::rdm, sks::raw };
 static const std::string unixpath = "./.unix.sock"; //Path to unix socket
 
 static sks::sockaddress host;
@@ -232,9 +232,9 @@ size_t allUnitTests();
  *	|                        |        |                        |
  *	\----------Join----------/        \----------Join----------/
  */
-int con_proper(sks::domain, sks::protocol);
-void con_proper_t1(int&, sks::domain, sks::protocol);
-void con_proper_t2(int&, sks::domain, sks::protocol);
+int con_proper(sks::domain, sks::type);
+void con_proper_t1(int&, sks::domain, sks::type);
+void con_proper_t2(int&, sks::domain, sks::type);
 /*
  *	            #1                                #2            
  *	          "Echo"                            Sender          
@@ -254,12 +254,12 @@ void con_proper_t2(int&, sks::domain, sks::protocol);
  *	|                        |        |                        |
  *	\----------Join----------/        \----------Join----------/
  */
-int conl_proper(sks::domain, sks::protocol);
-void conl_proper_t1(int&, sks::domain, sks::protocol);
-void conl_proper_t2(int&, sks::domain, sks::protocol);
+int conl_proper(sks::domain, sks::type);
+void conl_proper_t1(int&, sks::domain, sks::type);
+void conl_proper_t2(int&, sks::domain, sks::type);
 
 void init();
-int proper(sks::domain, sks::protocol);
+int proper(sks::domain, sks::type);
 void cleanup();
 
 sks::domain strtodom(std::string s) {
@@ -273,11 +273,11 @@ sks::domain strtodom(std::string s) {
 		return (sks::domain)0;
 	}
 }
-sks::protocol strtopro(std::string s) {
-	if (s == "tcp") {
-		return sks::tcp;
-	} else if (s == "udp") {
-		return sks::udp;
+sks::type strtopro(std::string s) {
+	if (s == "stream") {
+		return sks::stream;
+	} else if (s == "dgram") {
+		return sks::dgram;
 	} else if (s == "seq") {
 		return sks::seq;
 	} else if (s == "rdm") {
@@ -285,7 +285,7 @@ sks::protocol strtopro(std::string s) {
 	} else if (s == "raw") {
 		return sks::raw;
 	} else {
-		return (sks::protocol)0;
+		return (sks::type)0;
 	}
 }
 
@@ -319,7 +319,7 @@ int main(int argc, char** argv) {
 			
 			//Get test
 			std::string tname = arg.substr(0, opi); //Test name
-			std::function<int(sks::domain, sks::protocol)> t;
+			std::function<int(sks::domain, sks::type)> t;
 			if (tname == "proper") {
 				t = proper;
 			} else {
@@ -341,12 +341,12 @@ int main(int argc, char** argv) {
 				}
 			}
 			//Get protocols
-			std::vector<sks::protocol> protocols; //Protocols to cycle through
+			std::vector<sks::type> protocols; //Protocols to cycle through
 			for (std::string& s : split(arg.substr(cpi), ",")) {
 				if (s.size() == 0) {
 					continue;
 				}
-				sks::protocol p = strtopro(s);
+				sks::type p = strtopro(s);
 				if (p != 0) {
 					protocols.push_back(p);
 				} else {
@@ -358,7 +358,7 @@ int main(int argc, char** argv) {
 			//For each domain
 			for (sks::domain d : domains) {
 				//For each protocol for each domain
-				for (sks::protocol p : protocols) {
+				for (sks::type p : protocols) {
 					tests.push_back(std::bind(t, d, p));
 				}
 			}
@@ -414,7 +414,7 @@ size_t allUnitTests() {
 	size_t failures = 0;
 	
 	for (sks::domain d : allDomains) {
-		for (sks::protocol p : allProtocols) {
+		for (sks::type p : allProtocols) {
 			failures += proper(d, p);
 		}
 		std::cout << std::endl;
@@ -424,7 +424,7 @@ size_t allUnitTests() {
 }
 
 //Connected socket communications without any expected errors
-int con_proper(sks::domain d, sks::protocol p) {	
+int con_proper(sks::domain d, sks::type p) {
 	hostvalid = 0;
 	resetverifystream();
 	
@@ -452,7 +452,7 @@ int con_proper(sks::domain d, sks::protocol p) {
 	
 	return t1f + t2f;
 }
-void con_proper_t1(int& failures, sks::domain d, sks::protocol p) {
+void con_proper_t1(int& failures, sks::domain d, sks::type p) {
 	int e;
 	sks::serror se;
 	std::string prefix = "tcp_proper_t1(";
@@ -534,7 +534,7 @@ void con_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 	
 	delete hc;
 }
-void con_proper_t2(int& failures, sks::domain d, sks::protocol p) {
+void con_proper_t2(int& failures, sks::domain d, sks::type p) {
 	int e;
 	sks::serror se;
 	std::string prefix = "tcp_proper_t2(";
@@ -581,7 +581,7 @@ void con_proper_t2(int& failures, sks::domain d, sks::protocol p) {
 }
 
 //Connection-less socket communications without any expected errors
-int conl_proper(sks::domain d, sks::protocol p) {
+int conl_proper(sks::domain d, sks::type p) {
 	sockready = 0;
 	resetverifystream();
 	
@@ -610,7 +610,7 @@ int conl_proper(sks::domain d, sks::protocol p) {
 	
 	return t1f + t2f;
 }
-void conl_proper_t1(int& failures, sks::domain d, sks::protocol p) {
+void conl_proper_t1(int& failures, sks::domain d, sks::type p) {
 	//int e;
 	sks::serror se;
 	std::string prefix = "udp_proper_t1(";
@@ -659,7 +659,7 @@ void conl_proper_t1(int& failures, sks::domain d, sks::protocol p) {
 
 	//Close
 }
-void conl_proper_t2(int& failures, sks::domain d, sks::protocol p) {
+void conl_proper_t2(int& failures, sks::domain d, sks::type p) {
 	//int e;
 	sks::serror se;
 	std::string prefix = "udp_proper_t2(";
@@ -716,7 +716,7 @@ void init() {
 		allBytesReversed.push_back(UINT8_MAX - i);
 	}
 }
-int proper(sks::domain d, sks::protocol p) {
+int proper(sks::domain d, sks::type p) {
 	int failures;
 	//Run either con_proper(...) or conl_proper(...) based on if protocol is connected or connection-less
 	if (sks::connectionless(p)) {
