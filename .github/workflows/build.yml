@@ -14,7 +14,7 @@ jobs:
         cmake -S . -B build -DBUILD_SHARED_LIBS=ON
         cd build
         make
-  build--static:
+  build-static:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
