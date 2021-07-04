@@ -2,8 +2,11 @@ name: Build
 on: [ push, pull_request ]
 
 jobs:
-  build-ubuntu-shared:
-    runs-on: ubuntu-latest
+  build-shared:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+       os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
     - uses: actions/checkout@v2
     - name: Build shared library
@@ -11,8 +14,11 @@ jobs:
         cmake -S . -B build -DBUILD_SHARED_LIBS=ON
         cd build
         make
-  build-ubuntu-static:
-    runs-on: ubuntu-latest
+  build--static:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
     - uses: actions/checkout@v2
     - name: Build static library
@@ -20,4 +26,4 @@ jobs:
         cmake -S . -B build -DBUILD_SHARED_LIBS=OFF
         cd build
         make
-      
+
