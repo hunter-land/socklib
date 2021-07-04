@@ -35,13 +35,11 @@ namespace sks {
 	};
 	std::string to_string(domain d);
 	enum type {
-		//tcp = SOCK_STREAM, //For back-compatibility in this verison, depricated
-		stream = SOCK_STREAM,
-		//udp = SOCK_DGRAM, //For back-compatibility in this verison, depricated
-		dgram = SOCK_DGRAM,
-		seq = SOCK_SEQPACKET,
-		rdm = SOCK_RDM,
-		raw = SOCK_RAW
+		stream = SOCK_STREAM,	//Garuntees order and delivery of bytes; TCP in the IP world
+		dgram = SOCK_DGRAM,		//Garuntees message will be valid if received; UDP in the IP world
+		seq = SOCK_SEQPACKET,	//Garuntees order and delivery of bytes in message form (Similar to reliable data-grams)
+		rdm = SOCK_RDM,			//Garuntees deliver of bytes in message form, but without ordering
+		raw = SOCK_RAW			//Raw access to socket layer; Experimental in this context
 	};
 	std::string to_string(type p);
 	bool connectionless(type p); //Check if a type is connected or connectionless
@@ -67,19 +65,28 @@ namespace sks {
 		CLOSED, //Connection has been closed proper
 		UNBOUND, //Socket was not bound when it should have been
 		OPTTYPE, //option selection does not match data type
-		NOLISTEN //Socket is not a listener when trying to accept
+		NOLISTEN, //Socket is not a listener when trying to accept
+		FEWBYTES //Not all bytes have been sent
 	};
 	struct serror { //Socket error
 		errortype type; //Error type/source
 		int erno; //Error value (If type == USER, value is from packet filter)
 		
-		size_t pf_index; //Index of packetfilter (Valid only when type == USER)
+		union {
+			size_t pf_index; //Index of packetfilter (Valid only when type == USER)
+			#ifndef _WIN32
+				ssize_t bytesSent; //How many bytes WERE sent (Valid only when type == CLASS and erno == FEWBYTES)
+			#else
+				int bytesSent; //How many bytes WERE sent (Valid only when type == CLASS and erno == FEWBYTES)
+			#endif
+		};
 	};
+	std::ostream& operator<<(std::ostream& os, const serror se);
 	
 	std::string errorstr(int e);
 	std::string errorstr(serror e);
 	std::string to_string(serror e);
-	std::string errorstr(errortype e);
+	std::string to_string(errortype e);
 	
 	struct sockaddress {
 		//Default sockaddress

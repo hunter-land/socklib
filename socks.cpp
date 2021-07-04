@@ -31,7 +31,7 @@ extern "C" {
 		#include <io.h>
 		#include <ioapiset.h>
 		#include <afunix.h>
-		#undef max //Haha, windows still sucks
+		#undef max //Haha, windows still sucks (MSVC uses the max and min macro even with std::max and std::min being specified)
 		#undef min
 		#define sa_family_t ADDRESS_FAMILY
 		#define errno WSAGetLastError() //As "recommended" by windows
@@ -118,7 +118,11 @@ namespace sks {
 		}
 		return addrf + (sa.port != 0 ? (std::string(":") + std::to_string(sa.port)) : "");
 	}
-	
+
+	std::ostream& operator<<(std::ostream& os, const serror se) {
+		os << errorstr(se);
+		return os;
+	}
 	std::string errorstr(int e) {
 		std::string s;
 		#ifndef _WIN32
@@ -186,7 +190,7 @@ namespace sks {
 	std::string to_string(serror e) {
 		return errorstr(e);
 	}
-	std::string errorstr(errortype e) {
+	std::string to_string(errortype e) {
 		switch (e) {
 			case BSD:
 				return "C (BSD) socket error";
@@ -730,13 +734,14 @@ namespace sks {
 		e.type = CLASS;
 		e.erno = 0;
 		
-		if (m_valid == false || n == 0) {
+		if (m_valid == false) {
 			e.type = CLASS;
-			if (m_valid == false) {
-				e.erno = INVALID;
-			} else {
-				e.erno = NOBYTES;
-			}
+			e.erno = INVALID;
+			return e;
+		}
+		if (n == 0) {
+			e.type = CLASS;
+			e.erno = NOBYTES;
 			return e;
 		}
 		
@@ -753,18 +758,16 @@ namespace sks {
 			int br = ::recvfrom(m_sockid, (char*)pkt.data.data(), n, flags, (sockaddr*)&saddr, &slen);
 		#endif
 		//std::cout << "(Read " << br << " bytes)" << std::endl;
-		if (br <= 0) {
-			if (br == 0) {
-				m_valid = false; //If we read 0 bytes, the connection has been closed proper
-				e.type = CLASS;
-				e.erno = CLOSED;
-			} else {
-				//seterror(errno);
-				e.type = BSD;
-				e.erno = errno;
-				if (e.erno == 104) {
-					m_valid = false; //Connection closed by peer
-				}
+		if (br == 0) {
+			m_valid = false; //If we read 0 bytes, the connection has been closed proper
+			e.type = CLASS;
+			e.erno = CLOSED;
+			return e;
+		} else if (br < 0) {
+			e.type = BSD;
+			e.erno = errno;
+			if (e.erno == 104) {
+				m_valid = false; //Connection closed by peer
 			}
 			return e;
 		}
@@ -833,14 +836,20 @@ namespace sks {
 		}
 		
 		#ifndef _WIN32
-			ssize_t br = ::sendto(m_sockid, (void*)pkt.data.data(), pkt.data.size(), flags, saddrptr, slen);
+			ssize_t bs = ::sendto(m_sockid, (void*)pkt.data.data(), pkt.data.size(), flags, saddrptr, slen);
 		#else
-			int br = ::sendto(m_sockid, (char*)pkt.data.data(), pkt.data.size(), flags, saddrptr, slen);
+			int bs = ::sendto(m_sockid, (char*)pkt.data.data(), pkt.data.size(), flags, saddrptr, slen);
 		#endif
 		
-		if (br == -1) {
+		if (bs == -1) {
 			e.type = BSD;
 			e.erno = errno;
+			return e;
+		} else if (bs != pkt.data.size()) {
+			//Not all bytes were sent
+			e.type = CLASS;
+			e.erno = FEWBYTES;
+			e.bytesSent = bs;
 			return e;
 		}
 		
