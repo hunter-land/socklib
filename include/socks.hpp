@@ -1,8 +1,7 @@
-#define _POSIX_C_SOURCE 200112L //Needed here (in header) for SOCK_RDM on MacOS
-
 #pragma once
 extern "C" {
 	#ifndef _WIN32 //POSIX, for normal people
+		#undef _POSIX_C_SOURCE //Needed here (in header) for SOCK_RDM on MacOS
 		#include <sys/socket.h>
 		#include <netinet/in.h> //for IPV6_V6ONLY option and others
 	#else //Whatever-this-is, for windows people
