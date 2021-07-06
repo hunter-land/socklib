@@ -411,6 +411,8 @@ namespace sks {
 			msg += errorstr(errno);
 			throw sks::runtime_error(msg, serror{BSD, errno});
 		}
+		//Default to allow address reusage
+		setoption(option::reuseaddr, true, SOL_SOCKET);
 		//std::cout << "Created socket #" << m_sockid << std::endl;
 	}
 	socket_base::socket_base(int sockfd) {
