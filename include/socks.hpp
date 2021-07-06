@@ -16,6 +16,7 @@ extern "C" {
 #include <functional>
 #include <chrono>
 #include <stdexcept>
+#include <ostream>
 //This is a bit jank, I know, but it is because of the domain enum's `unix` name
 //The compiler thinks I am setting a number to a number if I don't undefine
 //This might cause issues, but shouldn't since both __unix__ and __unix are available and should be perferred anyway
