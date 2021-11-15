@@ -494,7 +494,7 @@ namespace sks {
 		//std::cout << "Destructing socket #" << m_sockid << std::endl;
 		m_valid = false;
 		m_listening = false;
-		shutdown(m_sockid, 0);
+		shutdown(m_sockid, SHUT_WR); //Flush all buffered data out, prevent more send operations on this socket
 		#ifndef _WIN32 //POSIX, for normal people
 			close(m_sockid);
 		#else //Whatever-this-is, for windows people
@@ -730,12 +730,9 @@ namespace sks {
 		return { CLASS, 0 };
 	}
 	
-	//Data handling functions
-	serror socket_base::recvfrom(packet& pkt, int flags, uint32_t n) {
+	//Core of recv functions
+	serror socket_base::corerecv(packet& pkt, int flags, size_t n) {
 		serror e;
-		e.type = CLASS;
-		e.erno = 0;
-		
 		if (m_valid == false) {
 			e.type = CLASS;
 			e.erno = INVALID;
@@ -746,14 +743,10 @@ namespace sks {
 			e.erno = NOBYTES;
 			return e;
 		}
-		
 		sockaddr_storage saddr;
 		socklen_t slen = sizeof(saddr);
 		memset(&saddr, 0, slen);
 		pkt.data.resize(n);
-		//uint8_t buf[n]; //0x100
-		
-		//std::cout << "Reading up to " << n << " bytes ";
 		#ifndef _WIN32
 			ssize_t br = ::recvfrom(m_sockid, (void*)pkt.data.data(), n, flags, (sockaddr*)&saddr, &slen);
 		#else
@@ -774,14 +767,57 @@ namespace sks {
 			return e;
 		}
 		pkt.data.resize(br);
-		
 		//Fill out packet.rem
 		pkt.rem = satosa(&saddr, slen);
-		
-		//Do post-recv function(s)
+		e.type = CLASS;
+		e.erno = 0;
+		return e;
+	}
+	serror socket_base::coresend(packet pkt, int flags) {
+		socklen_t slen = sizeof(sockaddr_storage);
+		sockaddr_storage saddr = satosa(pkt.rem, &slen);
+		anytoloop(saddr);
+		//std::cout << "Converted any to loop in sendto" << std::endl;
+		sockaddr* saddrptr = (sockaddr*)&saddr;
+		if (!connectionless(m_type)) { //Connected sockets should have a NULL address (otherwise sendto *might* return errors such as EISCONN)
+			saddrptr = NULL;
+			slen = 0;
+		}
+
+		#ifndef _WIN32
+		ssize_t bs = ::sendto(m_sockid, (void*)pkt.data.data(), pkt.data.size(), flags, saddrptr, slen);
+		#else
+		int bs = ::sendto(m_sockid, (char*)pkt.data.data(), pkt.data.size(), flags, saddrptr, slen);
+		#endif
+
+		serror e;
+		if (bs == -1) {
+			e.type = BSD;
+			e.erno = errno;
+			return e;
+		} else if (bs != pkt.data.size()) {
+			//Not all bytes were sent
+			e.type = CLASS;
+			e.erno = FEWBYTES;
+			e.bytesSent = bs;
+			return e;
+		}
+
+		e.type = CLASS;
+		e.erno = 0;
+		return e;
+	}
+	//Data handling functions
+	serror socket_base::recvfrom(packet& pkt, int flags, size_t n) {
+		serror e = corerecv(pkt, flags, n);
+		if (e.erno != 0) {
+			return e;
+		}
+
+		//Do all post-recv function(s)
 		for (auto it = m_postrecv.rbegin(); it != m_postrecv.rend(); it++) {
 			if (it->second != nullptr) {
-				
+
 				int r = it->second(pkt);
 				if (r != 0) {
 					//User's program has returned an error code
@@ -795,12 +831,41 @@ namespace sks {
 		
 		return e;
 	}
-	serror socket_base::recvfrom(std::vector<uint8_t>& data, int flags, uint32_t n) {
+	serror socket_base::recvfrom(std::vector<uint8_t>& data, int flags, size_t n) {
 		packet pkt;
 		sks::serror e = recvfrom(pkt, flags, n);
 		data = pkt.data;
 		return e;
 	}
+	/*serror socket_base::recvfrom(packet& pkt, size_t lastfilter, int flags, size_t n) {
+		serror e = corerecv(pkt, flags, n);
+		if (e.erno != 0) {
+			return e;
+		}
+
+		//Do some post-recv function(s)
+		for (auto it = m_postrecv.rbegin(); it != m_postrecv.rend() && it->first > lastfilter; it++) {
+			if (it->second != nullptr) {
+
+				int r = it->second(pkt);
+				if (r != 0) {
+					//User's program has returned an error code
+					e.type = USER;
+					e.erno = r;
+					e.pf_index = it->first;
+					return e;
+				}
+			}
+		}
+
+		return e;
+	}
+	serror socket_base::recvfrom(std::vector<uint8_t>& data, size_t lastfilter, int flags, size_t n) {
+		packet pkt;
+		sks::serror e = recvfrom(pkt, lastfilter, flags, n);
+		data = pkt.data;
+		return e;
+	}*/
 	serror socket_base::sendto(packet pkt, int flags) {
 		serror e;
 		e.type = CLASS;
@@ -815,7 +880,7 @@ namespace sks {
 		//Do pre-send function(s)
 		for (auto it = m_presend.begin(); it != m_presend.end(); it++) {
 			if (it->second != nullptr) {
-				
+
 				int r = it->second(pkt);
 				if (r != 0) {
 					//Failure; Abort
@@ -827,35 +892,7 @@ namespace sks {
 			}
 		}
 		
-		socklen_t slen = sizeof(sockaddr_storage);
-		sockaddr_storage saddr = satosa(pkt.rem, &slen);
-		anytoloop(saddr);
-		//std::cout << "Converted any to loop in sendto" << std::endl;
-		sockaddr* saddrptr = (sockaddr*)&saddr;
-		if (!connectionless(m_type)) { //Connected sockets should have a NULL address (otherwise sendto *might* return errors such as EISCONN)
-			saddrptr = NULL;
-			slen = 0;
-		}
-		
-		#ifndef _WIN32
-			ssize_t bs = ::sendto(m_sockid, (void*)pkt.data.data(), pkt.data.size(), flags, saddrptr, slen);
-		#else
-			int bs = ::sendto(m_sockid, (char*)pkt.data.data(), pkt.data.size(), flags, saddrptr, slen);
-		#endif
-		
-		if (bs == -1) {
-			e.type = BSD;
-			e.erno = errno;
-			return e;
-		} else if (bs != pkt.data.size()) {
-			//Not all bytes were sent
-			e.type = CLASS;
-			e.erno = FEWBYTES;
-			e.bytesSent = bs;
-			return e;
-		}
-		
-		return e;
+		return coresend(pkt, flags);
 	}
 	serror socket_base::sendto(std::vector<uint8_t> data, int flags) {
 		packet pkt;

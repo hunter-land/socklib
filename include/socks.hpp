@@ -119,7 +119,11 @@ namespace sks {
 	
 	class socket_base {
 	protected:
-		int m_sockid = -1; //Socket fd value
+		#ifndef _WIN32
+			int m_sockid = -1; //Socket fd value
+		#else
+			SOCKET m_sockid = -1;
+		#endif
 		domain m_domain; //Domain of this socket
 		type m_type; //Type of this socket
 		int m_protocol; //Specific protocol of this socket
@@ -129,14 +133,16 @@ namespace sks {
 		sockaddress m_loc_addr; //Socket's local address
 		sockaddress m_rem_addr; //Socket's remote/peer address
 		
-		std::map<size_t, packfunc> m_presend; //Function(s) to call in ascending order before sending a packet
-		std::map<size_t, packfunc> m_postrecv; //Function(s) to call in descending order after receiving a packet
+		std::map<size_t, packetfilter> m_presend; //Function(s) to call in ascending order before sending a packet
+		std::map<size_t, packetfilter> m_postrecv; //Function(s) to call in descending order after receiving a packet
 		
 		std::chrono::microseconds m_rxto = std::chrono::microseconds(0); //RX timeout
 		std::chrono::microseconds m_txto = std::chrono::microseconds(0); //TX timeout
 		
 		sockaddr_storage setlocinfo(); //Update m_loc_addr
 		sockaddr_storage setreminfo(); //Update m_rem_addr
+		virtual serror corerecv(packet& pkt, int flags, size_t n);
+		virtual serror coresend(packet pkt, int flags);
 	public:
 		//Create a new socket
 		socket_base(sks::domain d, sks::type t = sks::type::stream, int p = 0);
@@ -206,8 +212,8 @@ namespace sks {
 		
 		//Read bytes from socket
 		//n should be equal to or larger than expected data
-		serror recvfrom(packet& pkt, int flags = 0, uint32_t n = 0x2000); //0x400 = 1KB, 0x100000 = 1MB, 0x40000000, = 1GB, 0x800000 = 8MB
-		serror recvfrom(std::vector<uint8_t>& data, int flags = 0, uint32_t n = 0x2000);
+		serror recvfrom(packet& pkt, int flags = 0, size_t n = 0x2000); //0x400 = 1KB, 0x100000 = 1MB, 0x40000000, = 1GB, 0x800000 = 8MB
+		serror recvfrom(std::vector<uint8_t>& data, int flags = 0, size_t n = 0x2000);
 		//Send bytes
 		serror sendto(packet pkt, int flags = 0);
 		serror sendto(std::vector<uint8_t> data, int flags = 0);
