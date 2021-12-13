@@ -43,11 +43,14 @@ namespace sks {
 		virtual operator sockaddr_storage() const = 0;
 		virtual operator socklen_t() const = 0;
 	
+		domain domain() const;
 		//Get a human-readable representation of the address
 		//This string should be usable to construct an identical address
 		//Must be implemented by child classes
 		virtual std::string name() const = 0;
 	};
+	bool createAddress(std::string addrstr, address& to); //(try to) create an address based on string alone
+	//Can create either an IPv4 or IPv6 address (No unix, use unix directly if needed)
 
 
 	class IPv4Address : public address {

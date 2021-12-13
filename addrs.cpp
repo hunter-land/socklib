@@ -12,6 +12,25 @@ extern "C" {
 namespace sks {
 	
 	address::address() {}
+	domain address::domain() const {
+		return m_domain;
+	}
+	bool createAddress(std::string addrstr, address& to) {
+		//try order:
+		//ipv6
+		//ipv4
+		try {
+			IPv6Address addr(addrstr);
+			to = addr;
+			return true;
+		} catch (std::exception) {}
+		try {
+			IPv4Address addr(addrstr);
+			to = addr;
+			return true;
+		} catch (std::exception) {}
+		return false;
+	}
 	
 	IPv4Address::IPv4Address(const std::string addrstr) { //Parse address from string
 		m_name = addrstr;
