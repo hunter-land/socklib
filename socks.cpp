@@ -147,7 +147,7 @@ namespace sks {
 		}
 		//We have the file descriptor, construct a socket (class) around it
 		socket peer(peerFD, m_domain, m_type, m_protocol);
-		return std::move(peer);
+		return peer;
 	}
 
 	void socket::connect(const address& address) {

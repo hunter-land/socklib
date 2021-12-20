@@ -22,12 +22,12 @@ namespace sks {
 			IPv6Address addr(addrstr);
 			to = addr;
 			return true;
-		} catch (std::exception) {}
+		} catch (std::exception&) {}
 		try {
 			IPv4Address addr(addrstr);
 			to = addr;
 			return true;
-		} catch (std::exception) {}
+		} catch (std::exception&) {}
 		return false;
 	}
 	void createAddress(const sockaddr_storage from, const socklen_t len, address& to) {
