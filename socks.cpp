@@ -34,6 +34,9 @@ namespace sks {
 		}
 		//Socket created successfully by this line
 		m_validFD = true;
+		m_domain = d;
+		m_type = t;
+		m_protocol = protocol;
 	}
 	
 	socket::socket(int sockFD, domain d, type t, int protocol) {

@@ -57,5 +57,6 @@ namespace sks {
 		std::vector<uint8_t> receive(size_t bufSize = 0x10000);
 		std::vector<uint8_t> receive(address& from, size_t bufSize = 0x10000);
 	};
+	//Only garunteed to work for unix domain
 	std::pair<socket, socket> socketPair(domain d, type t, int protocol = 0);
 };
