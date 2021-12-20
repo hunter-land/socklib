@@ -1,12 +1,11 @@
 #include "include/addrs.hpp"
+#include "include/errors.hpp"
 #include <cstring>
 #include <regex>
 extern "C" {
-	#ifndef _WIN32
-		#include <sys/socket.h>
-		#include <sys/un.h>
-		#include <netdb.h>
-	#endif
+	#include <sys/socket.h>
+	#include <sys/un.h>
+	#include <netdb.h>
 }
 
 namespace sks {
@@ -15,7 +14,7 @@ namespace sks {
 	domain address::domain() const {
 		return m_domain;
 	}
-	bool createAddress(std::string addrstr, address& to) {
+	bool createAddress(const std::string addrstr, address& to) {
 		//try order:
 		//ipv6
 		//ipv4
@@ -30,6 +29,23 @@ namespace sks {
 			return true;
 		} catch (std::exception) {}
 		return false;
+	}
+	void createAddress(const sockaddr_storage from, const socklen_t len, address& to) {
+		//call appropriate constructor
+		switch (from.ss_family) {
+			case IPv4:
+				to = IPv4Address(*(sockaddr_in*)&from);
+				break;
+			case IPv6:
+				to = IPv6Address(*(sockaddr_in6*)&from);
+				break;
+			case unix:
+				to = unixAddress(*(sockaddr_un*)&from, len);
+				break;
+			default:
+				//Domain not supported
+				throw sysErr(EFAULT);
+		}
 	}
 	
 	IPv4Address::IPv4Address(const std::string addrstr) { //Parse address from string
@@ -51,7 +67,7 @@ namespace sks {
 			size_t delimIndex = addrstr.find("://");
 			as = addrstr.substr(delimIndex + 3);
 			scheme = addrstr.substr(0, delimIndex);
-		} else if (regex_match(addrstr, std::regex("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d{1,5}"))) {
+		} else if (regex_match(addrstr, std::regex("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d{1,5}")) || regex_match(addrstr, std::regex("localhost:\\d{1,5}"))) {
 			//addr:port format
 			size_t colonIndex = addrstr.find(':');
 			m_port = std::stoul(addrstr.substr(colonIndex + 1));
@@ -309,7 +325,10 @@ namespace sks {
 	ax25Address::operator sockaddr_ax25() const { //Cast to C struct
 		sockaddr_ax25 addr;
 		addr.sax25_family = AF_AX25;
-		ax25_aton_entry(m_name, (char*)&addr.sax25_call);
+		int error = ax25_aton_entry(m_name, (char*)&addr.sax25_call);
+		if (error != 0) {
+			throw std::runtime_error("Could not get ax25 address from " + addrstr);
+		}
 		addr.sax25_ndigis = m_ndigis;
 	}
 	ax25Address::operator socklen_t() const { //Length associated with above (sockaddr_ax25 cast)

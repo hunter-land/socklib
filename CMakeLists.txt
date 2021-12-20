@@ -12,8 +12,8 @@ if (NOT CMAKE_BUILD_TYPE) #If the user hasn't set it, we set it
 endif()
 
 #Source files:
-set(SOURCE_FILES "socks.cpp")
-set(HEADER_FILES "${INCLUDE_DIR}/socks.hpp")
+set(SOURCE_FILES "socks.cpp" "addrs.cpp" "errors.cpp")
+set(HEADER_FILES "${INCLUDE_DIR}/socks.hpp" "${INCLUDE_DIR}/addrs.hpp" "${INCLUDE_DIR}/errors.hpp")
 
 add_library(socks ${SOURCE_FILES})
 # Set target properties for version and the related (public) headers

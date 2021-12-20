@@ -3,18 +3,20 @@
 #include <string>
 #include <vector>
 extern "C" {
-	#ifdef __unix__
-		//Unix system, aka POSIX compliant
-		#include <sys/socket.h>
-		#include <netinet/in.h>
-		#include <sys/un.h>
-		//#include <linux/ax25.h> //Many systems don't have these header, and neither do I so I can't even test/develop for it, but I'd like to
-		//#include <netax25/ax25.h>
-		//#include <netax25/axlib.h>
-		//#include <netax25/axconfig.h>
-	#endif
+	#include <sys/socket.h>
+	#include <netinet/in.h>
+	#include <sys/un.h>
+	//#include <linux/ax25.h> //Many systems don't have these header, and neither do I so I can't even test/develop for it, but I'd like to
+	//#include <netax25/ax25.h>
+	//#include <netax25/axlib.h>
+	//#include <netax25/axconfig.h>
 }
+//This is a bit jank, I know, but it is because of the domain enum's `unix` name
+//The compiler thinks I am setting a number to a number if I don't undefine
+//This might cause issues, but shouldn't since both __unix__ and __unix are available and should be perferred anyway
+#ifdef unix
 #undef unix
+#endif
 
 namespace sks {
 	//Address domains
@@ -39,7 +41,7 @@ namespace sks {
 		domain m_domain; //Domain of this address (each domain should have its own, specific, child-class)
 		
 		address();
-	public:
+	public:	
 		virtual operator sockaddr_storage() const = 0;
 		virtual operator socklen_t() const = 0;
 	
@@ -49,8 +51,9 @@ namespace sks {
 		//Must be implemented by child classes
 		virtual std::string name() const = 0;
 	};
-	bool createAddress(std::string addrstr, address& to); //(try to) create an address based on string alone
-	//Can create either an IPv4 or IPv6 address (No unix, use unix directly if needed)
+	bool createAddress(const std::string addrstr, address& to); //(try to) create an address based on string alone
+	void createAddress(const sockaddr_storage from, const socklen_t len, address& to); //Convert sockaddr to address
+	//Both createAddress functions create either an IPv4 or IPv6 address (No unix, use unix directly if needed)
 
 
 	class IPv4Address : public address {
