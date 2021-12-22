@@ -48,6 +48,7 @@ namespace sks {
 		}
 	}
 	
+	IPv4Address::IPv4Address(uint16_t port) : IPv4Address("0.0.0.0:" + std::to_string(port)) {} //Construct an any address
 	IPv4Address::IPv4Address(const std::string addrstr) { //Parse address from string
 		m_name = addrstr;
 		m_domain = IPv4;
@@ -112,7 +113,7 @@ namespace sks {
 		//Delete
 		freeaddrinfo(results);
 	}
-	IPv4Address::IPv4Address(const sockaddr_in addr) { //Constrcut from C struct
+	IPv4Address::IPv4Address(const sockaddr_in addr) { //Construct from C struct
 		m_domain = IPv4;
 		memcpy(m_addr.data(), &addr.sin_addr, 4);
 		m_port = addr.sin_port;
@@ -145,6 +146,7 @@ namespace sks {
 		return m_name;
 	}
 	
+	IPv6Address::IPv6Address(uint16_t port) : IPv6Address("[::]:" + std::to_string(port)) {} //Construct an any address
 	IPv6Address::IPv6Address(const std::string addrstr) { //Parse address from string
 		m_name = addrstr;
 		m_domain = IPv6;
@@ -210,7 +212,7 @@ namespace sks {
 		//Delete
 		freeaddrinfo(results);
 	}
-	IPv6Address::IPv6Address(const sockaddr_in6 addr) { //Constrcut from C struct
+	IPv6Address::IPv6Address(const sockaddr_in6 addr) { //Construct from C struct
 		m_domain = IPv6;
 		memcpy(m_addr.data(), &addr.sin6_addr, 16);
 		m_port = addr.sin6_port;
@@ -257,7 +259,7 @@ namespace sks {
 		m_addr = std::vector<char>(addrstr.begin(), addrstr.end());
 		m_addr.push_back('\0');
 	}
-	unixAddress::unixAddress(const sockaddr_un addr, const socklen_t len) { //Constrcut from C struct
+	unixAddress::unixAddress(const sockaddr_un addr, const socklen_t len) { //Construct from C struct
 		m_domain = unix;
 		size_t pathlen = len - sizeof(sa_family_t);
 		if (pathlen > 0 && addr.sun_path[0] != '\0') {

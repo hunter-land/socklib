@@ -62,8 +62,9 @@ namespace sks {
 		uint16_t m_port = 0;
 		std::string m_name;
 	public:
+		IPv4Address(uint16_t port = 0); //Construct an any address
 		IPv4Address(const std::string addrstr); //Parse address from string
-		IPv4Address(const sockaddr_in addr); //Constrcut from C struct
+		IPv4Address(const sockaddr_in addr); //Construct from C struct
 		operator sockaddr_in() const; //Cast to C struct
 		operator socklen_t() const; //Length associated with above (sockaddr_in cast)
 		operator sockaddr_storage() const;
@@ -79,8 +80,9 @@ namespace sks {
 		uint16_t m_port = 0;
 		std::string m_name;
 	public:
+		IPv6Address(uint16_t port = 0); //Construct an any address
 		IPv6Address(const std::string addrstr); //Parse address from string
-		IPv6Address(const sockaddr_in6 addr); //Constrcut from C struct
+		IPv6Address(const sockaddr_in6 addr); //Construct from C struct
 		operator sockaddr_in6() const; //Cast to C struct
 		operator socklen_t() const; //Length associated with above (sockaddr_in6 cast)
 		operator sockaddr_storage() const;
@@ -101,7 +103,7 @@ namespace sks {
 		std::vector<char> m_addr;
 	public:
 		unixAddress(const std::string addrstr); //Parse address from string
-		unixAddress(const sockaddr_un addr, const socklen_t len); //Constrcut from C struct
+		unixAddress(const sockaddr_un addr, const socklen_t len); //Construct from C struct
 		operator sockaddr_un() const; //Cast to C struct
 		operator socklen_t() const; //Length associated with above (sockaddr_un cast)
 		operator sockaddr_storage() const;
