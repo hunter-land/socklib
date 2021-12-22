@@ -5,6 +5,8 @@ extern "C" {
 	#include <sys/socket.h> //general socket
 	#include <unistd.h> //close(...) and unlink(...)
 }
+#include <vector>
+#include <chrono>
 
 namespace sks {
 	/*const struct {
@@ -160,6 +162,7 @@ namespace sks {
 		if (e == -1) {
 			throw sysErr(errno);
 		}
+		//Nothing went wrong! We are now connected and theoretically ready to send/receive data
 	}
 	
 	void socket::send(std::vector<uint8_t> data) {
@@ -209,9 +212,78 @@ namespace sks {
 		return buffer;
 	}
 
+	void socket::sendTimeout(std::chrono::microseconds us) {
+		//Set the tx timeout option
+		//timeval { time_t tv_sec; suseconds_t tv_usec; };
+		auto seconds = std::chrono::duration_cast<std::chrono::seconds>(us); //Remove microseconds component
+		auto microseconds = us % std::chrono::seconds(1); //Remove seconds component
+		timeval tv;
+		tv.tv_sec = seconds.count();
+		tv.tv_usec = microseconds.count();
+		
+		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+		if (e == -1) {
+			throw sysErr(errno);
+		}
+	}
+	std::chrono::microseconds socket::sendTimeout() {
+		timeval tv;
+		socklen_t tvl;
+		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, &tv, &tvl);
+		
+		return std::chrono::microseconds(tv.tv_usec) + std::chrono::seconds(tv.tv_sec);
+	}
+	void socket::receiveTimeout(std::chrono::microseconds us) {
+		//Set the rx timeout option
+		//timeval { time_t tv_sec; suseconds_t tv_usec; };
+		auto seconds = std::chrono::duration_cast<std::chrono::seconds>(us); //Remove microseconds component
+		auto microseconds = us % std::chrono::seconds(1); //Remove seconds component
+		timeval tv;
+		tv.tv_sec = seconds.count();
+		tv.tv_usec = microseconds.count();
+		
+		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+		if (e == -1) {
+			throw sysErr(errno);
+		}
+	}
+	std::chrono::microseconds socket::receiveTimeout() {
+		timeval tv;
+		socklen_t tvl;
+		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, &tv, &tvl);
+		
+		return std::chrono::microseconds(tv.tv_usec) + std::chrono::seconds(tv.tv_sec);
+	}
+		
+	bool socket::connectedAddress(address& address) {
+		sockaddr_storage sa;
+		socklen_t salen;
+		int e = getpeername(m_sockFD, (sockaddr*)&sa, &salen);
+		if (e == -1) {
+			if (e == ENOTCONN) {
+				//Not connected
+				//This should be removed, and instead a function to get an isConnected boolean implemented to seperate function
+				return false;
+			}
+			throw sysErr(errno);
+		}
+		createAddress(sa, salen, address);
+		return true;
+	}
+	void socket::localAddress(address& address) {
+		sockaddr_storage sa;
+		socklen_t salen;
+		int e = getsockname(m_sockFD, (sockaddr*)&sa, &salen);
+		if (e == -1) {
+			throw sysErr(errno);
+		}
+		createAddress(sa, salen, address);
+	}
 
 
-	std::pair<socket, socket> socketPair(domain d, type t, int protocol) {
+
+	std::pair<socket, socket> socketPair(type t, int protocol) {
+		const domain d = unix;
 		//Create two sockets with given params
 		int FDs[2];
 		int e = socketpair(d, t, protocol, FDs);

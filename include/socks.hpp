@@ -17,6 +17,7 @@ extern "C" {
 #include <chrono>
 #include <stdexcept>
 #include <ostream>
+#include <chrono>
 
 #include "addrs.hpp" //Addresses and domains
 
@@ -26,6 +27,12 @@ namespace sks {
 		uint16_t minor;
 		uint16_t build;
 	} versionInfo;*/
+	
+	/*enum option {
+		debug = SO_DEBUG,
+		broadcast = SO_BROADCAST,
+		reuseaddr = SO_REUSEADDR
+	}*/
 		
 	class socket {
 	protected:
@@ -35,9 +42,8 @@ namespace sks {
 		type m_type; //type of socket this is, cannot be switched (assigned at construction)
 		int m_protocol; //specific protocol of this socket, cannot be switched (assigned at construction)
 		
-		
 		socket(int sockFD, domain d, type t, int protocol);
-		friend std::pair<socket, socket> socketPair(domain d, type t, int protocol);
+		friend std::pair<socket, socket> createUnixPair(type t, int protocol);
 	public:
 		socket(domain d, type t, int protocol = 0);
 		socket(const socket& s) = delete; //socket cannot be construction-copied
@@ -47,16 +53,34 @@ namespace sks {
 		socket& operator=(const socket& s) = delete; //socket cannot be assignment-copied
 		socket& operator=(socket&& s) = delete; //socket cannot be assignment-moved
 		
+		//Critical setup functions
 		void bind(const address& address);
 		void listen(int backlog = 0xFF);
 		socket accept();
 		void connect(const address& address);
 		
+		//Critical usage functions
 		void send(std::vector<uint8_t> data);
 		void send(std::vector<uint8_t> data, address& to);
 		std::vector<uint8_t> receive(size_t bufSize = 0x10000);
 		std::vector<uint8_t> receive(address& from, size_t bufSize = 0x10000);
+		
+		//Critical utility functions
+		void sendTimeout(std::chrono::microseconds us);
+		std::chrono::microseconds sendTimeout();
+		void receiveTimeout(std::chrono::microseconds us);
+		std::chrono::microseconds receiveTimeout();
+		//set/get option bool
+		//set/get option int
+		//SO_BROADCAST
+		
+		//Important utility functions
+		//bool connected();
+		bool connectedAddress(address& address);
+		void localAddress(address& address);
 	};
-	//Only garunteed to work for unix domain
-	std::pair<socket, socket> socketPair(domain d, type t, int protocol = 0);
+	
+	std::pair<socket, socket> createUnixPair(type t, int protocol = 0);
+	//poll (maybe/probably a class)
+	
 };
