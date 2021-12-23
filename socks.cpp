@@ -4,6 +4,7 @@ extern "C" {
 	//#if __has_include(<unistd.h>) //SHOULD be true if POSIX, false otherwise
 	#include <sys/socket.h> //general socket
 	#include <unistd.h> //close(...) and unlink(...)
+	#include <poll.h> //poll(...)
 }
 #include <vector>
 #include <chrono>
@@ -212,15 +213,22 @@ namespace sks {
 		return buffer;
 	}
 	
-	void socket::sendTimeout(std::chrono::microseconds us) {
-		//Set the tx timeout option
+	timeval microsecondsToTimeval(std::chrono::microseconds us) {
 		//timeval { time_t tv_sec; suseconds_t tv_usec; };
 		auto seconds = std::chrono::duration_cast<std::chrono::seconds>(us); //Remove microseconds component
 		auto microseconds = us % std::chrono::seconds(1); //Remove seconds component
 		timeval tv;
 		tv.tv_sec = seconds.count();
 		tv.tv_usec = microseconds.count();
-		
+		return tv;
+	}
+	std::chrono::microseconds timevalToMicroseconds(timeval tv) {
+		return std::chrono::microseconds(tv.tv_usec) + std::chrono::seconds(tv.tv_sec);
+	}
+
+	void socket::sendTimeout(std::chrono::microseconds us) {
+		//Set the tx timeout option
+		timeval tv = microsecondsToTimeval(us);
 		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 		if (e == -1) {
 			throw sysErr(errno);
@@ -230,19 +238,16 @@ namespace sks {
 		timeval tv;
 		socklen_t tvl;
 		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, &tv, &tvl);
+		if (e == -1) {
+			throw sysErr(errno);
+		}
 		
-		return std::chrono::microseconds(tv.tv_usec) + std::chrono::seconds(tv.tv_sec);
+		return timevalToMicroseconds(tv);
 	}
 	
 	void socket::receiveTimeout(std::chrono::microseconds us) {
 		//Set the rx timeout option
-		//timeval { time_t tv_sec; suseconds_t tv_usec; };
-		auto seconds = std::chrono::duration_cast<std::chrono::seconds>(us); //Remove microseconds component
-		auto microseconds = us % std::chrono::seconds(1); //Remove seconds component
-		timeval tv;
-		tv.tv_sec = seconds.count();
-		tv.tv_usec = microseconds.count();
-		
+		timeval tv = microsecondsToTimeval(us);
 		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 		if (e == -1) {
 			throw sysErr(errno);
@@ -252,8 +257,35 @@ namespace sks {
 		timeval tv;
 		socklen_t tvl;
 		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, &tv, &tvl);
-		
-		return std::chrono::microseconds(tv.tv_usec) + std::chrono::seconds(tv.tv_sec);
+		if (e == -1) {
+			throw sysErr(errno);
+		}
+
+		return timevalToMicroseconds(tv);
+	}
+
+	bool socket::writeReady(int timeout) {
+		//Check if the socket can be written to, waiting for up to <timeout> milliseconds
+		pollfd pfd;
+		pfd.fd = m_sockFD;
+		pfd.events = POLLOUT;
+		pfd.revents = 0; //Zero it out since we read later and don't want any issues
+		int r = poll(&pfd, 1, timeout);
+		if (r == -1) {
+			throw sysErr(errno);
+		}
+		return (pfd.revents & POLLOUT) == POLLOUT;
+	}
+	bool socket::readReady(int timeout) {
+		pollfd pfd;
+		pfd.fd = m_sockFD;
+		pfd.events = POLLIN;
+		pfd.revents = 0; //Zero it out since we read later and don't want any issues
+		int r = poll(&pfd, 1, timeout);
+		if (r == -1) {
+			throw sysErr(errno);
+		}
+		return (pfd.revents & POLLIN) == POLLIN;
 	}
 	
 	bool socket::connectedAddress(address& address) {
