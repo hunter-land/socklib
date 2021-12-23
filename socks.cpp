@@ -154,7 +154,7 @@ namespace sks {
 		socket peer(peerFD, m_domain, m_type, m_protocol);
 		return peer;
 	}
-
+	
 	void socket::connect(const address& address) {
 		sockaddr_storage addr = address;
 		int e = ::connect(m_sockFD, (sockaddr*)&addr, (socklen_t)address);
@@ -211,7 +211,7 @@ namespace sks {
 		createAddress(sa, salen, from);
 		return buffer;
 	}
-
+	
 	void socket::sendTimeout(std::chrono::microseconds us) {
 		//Set the tx timeout option
 		//timeval { time_t tv_sec; suseconds_t tv_usec; };
@@ -233,6 +233,7 @@ namespace sks {
 		
 		return std::chrono::microseconds(tv.tv_usec) + std::chrono::seconds(tv.tv_sec);
 	}
+	
 	void socket::receiveTimeout(std::chrono::microseconds us) {
 		//Set the rx timeout option
 		//timeval { time_t tv_sec; suseconds_t tv_usec; };
@@ -254,7 +255,7 @@ namespace sks {
 		
 		return std::chrono::microseconds(tv.tv_usec) + std::chrono::seconds(tv.tv_sec);
 	}
-		
+	
 	bool socket::connectedAddress(address& address) {
 		sockaddr_storage sa;
 		socklen_t salen;
@@ -282,7 +283,7 @@ namespace sks {
 
 
 
-	std::pair<socket, socket> socketPair(type t, int protocol) {
+	std::pair<socket, socket> createUnixPair(type t, int protocol) {
 		const domain d = unix;
 		//Create two sockets with given params
 		int FDs[2];
