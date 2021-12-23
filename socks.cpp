@@ -90,7 +90,7 @@ namespace sks {
 	
 	void socket::bind(const address& address) {
 		//Make sure domain of address matches that of this socket
-		if (address.domain() != m_domain) {
+		if (address.addressDomain() != m_domain) {
 			throw sysErr(EFAULT); //Bad Address, since domain mis-matched between address and this socket
 		}
 		//Do binding

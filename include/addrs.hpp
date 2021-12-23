@@ -45,7 +45,7 @@ namespace sks {
 		virtual operator sockaddr_storage() const = 0;
 		virtual operator socklen_t() const = 0;
 	
-		domain domain() const;
+		domain addressDomain() const;
 		//Get a human-readable representation of the address
 		//This string should be usable to construct an identical address
 		//Must be implemented by child classes

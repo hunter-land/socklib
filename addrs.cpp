@@ -11,7 +11,7 @@ extern "C" {
 namespace sks {
 	
 	address::address() {}
-	domain address::domain() const {
+	domain address::addressDomain() const {
 		return m_domain;
 	}
 	bool createAddress(const std::string addrstr, address& to) {
