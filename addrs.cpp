@@ -162,7 +162,7 @@ namespace sks {
 		//Read result
 		memcpy(m_addr.data(), &((sockaddr_in*)results->ai_addr)->sin_addr, 4);
 		if (m_port == 0) {
-			m_port = htons(((sockaddr_in*)results->ai_addr)->sin_port);
+			m_port = ntohs(((sockaddr_in*)results->ai_addr)->sin_port);
 		}
 		
 		//Delete
@@ -171,7 +171,7 @@ namespace sks {
 	IPv4Address::IPv4Address(const sockaddr_in addr) { //Construct from C struct
 		m_domain = IPv4;
 		memcpy(m_addr.data(), &addr.sin_addr, 4);
-		m_port = addr.sin_port;
+		m_port = ntohs(addr.sin_port);
 		//Set m_name accordingly
 		char str[64]; //64 should cover everything for IPv4
 		const char* r = inet_ntop(IPv4, &addr.sin_addr, str, 64);
@@ -184,7 +184,7 @@ namespace sks {
 		sockaddr_in addr;
 		addr.sin_family = AF_INET;
 		memcpy(&addr.sin_addr, m_addr.data(), 4);
-		addr.sin_port = m_port;
+		addr.sin_port = ntohs(m_port);
 		memset(addr.sin_zero, 0, 8);
 		return addr;
 	}
@@ -268,7 +268,7 @@ namespace sks {
 		//Read result
 		memcpy(m_addr.data(), &((sockaddr_in6*)results->ai_addr)->sin6_addr, 16);
 		if (m_port == 0) {
-			m_port = htons(((sockaddr_in6*)results->ai_addr)->sin6_port);
+			m_port = ntohs(((sockaddr_in6*)results->ai_addr)->sin6_port);
 		}
 		
 		//Delete
@@ -277,7 +277,7 @@ namespace sks {
 	IPv6Address::IPv6Address(const sockaddr_in6 addr) { //Construct from C struct
 		m_domain = IPv6;
 		memcpy(m_addr.data(), &addr.sin6_addr, 16);
-		m_port = addr.sin6_port;
+		m_port = ntohs(addr.sin6_port);
 		//Set m_name accordingly
 		char str[64]; //64 should cover everything for IPv6
 		const char* r = inet_ntop(IPv6, &addr.sin6_addr, str, 64);
@@ -290,7 +290,7 @@ namespace sks {
 		sockaddr_in6 addr;
 		addr.sin6_family = AF_INET6;
 		memcpy(&addr.sin6_addr, m_addr.data(), 16);
-		addr.sin6_port = m_port;
+		addr.sin6_port = htons(m_port);
 		return addr;
 	}
 	IPv6Address::operator socklen_t() const {
