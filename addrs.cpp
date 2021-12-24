@@ -305,9 +305,9 @@ namespace sks {
 			//pathname, can be displayed as is
 			return std::string(m_addr.begin(), m_addr.end() - 1);
 		} else if (m_addr.size() == 0) {
-			return "unnamed UNIX address";
+			return "unnamed unix address";
 		} else {
-			return "abstract UNIX address";
+			return "abstract unix address";
 		}
 	}
 
