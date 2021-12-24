@@ -156,11 +156,13 @@ namespace sks {
 		m_port = addr.sin_port;
 		//Set m_name accordingly
 		char str[64]; //64 should cover everything for IPv4
-		const char* r = inet_ntop(IPv4, &addr, str, 64);
+		const char* r = inet_ntop(IPv4, &addr.sin_addr, str, 64);
 		if (r == nullptr) {
 			throw sysErr(errno);
 		}
 		m_name = std::string(r);
+		m_name += ":";
+		m_name += m_port;
 	}
 	IPv4Address::operator sockaddr_in() const { //Cast to C struct
 		sockaddr_in addr;
@@ -262,11 +264,14 @@ namespace sks {
 		m_port = addr.sin6_port;
 		//Set m_name accordingly
 		char str[64]; //64 should cover everything for IPv6
-		const char* r = inet_ntop(IPv6, &addr, str, 64);
+		const char* r = inet_ntop(IPv6, &addr.sin6_addr, str, 64);
 		if (r == nullptr) {
 			throw sysErr(errno);
 		}
-		m_name = std::string(r);
+		m_name = "[";
+		m_name += std::string(r);
+		m_name += "]:";
+		m_name += m_port;
 	}
 	IPv6Address::operator sockaddr_in6() const { //Cast to C struct
 		sockaddr_in6 addr;
