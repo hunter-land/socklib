@@ -6,6 +6,7 @@ extern "C" {
 	#include <sys/socket.h>
 	#include <sys/un.h>
 	#include <netdb.h>
+	#include <arpa/inet.h> //inet -> string
 }
 
 namespace sks {
@@ -153,6 +154,13 @@ namespace sks {
 		m_domain = IPv4;
 		memcpy(m_addr.data(), &addr.sin_addr, 4);
 		m_port = addr.sin_port;
+		//Set m_name accordingly
+		char str[64]; //64 should cover everything for IPv4
+		const char* r = inet_ntop(IPv4, &addr, str, 64);
+		if (r == nullptr) {
+			throw sysErr(errno);
+		}
+		m_name = std::string(r);
 	}
 	IPv4Address::operator sockaddr_in() const { //Cast to C struct
 		sockaddr_in addr;
@@ -252,6 +260,13 @@ namespace sks {
 		m_domain = IPv6;
 		memcpy(m_addr.data(), &addr.sin6_addr, 16);
 		m_port = addr.sin6_port;
+		//Set m_name accordingly
+		char str[64]; //64 should cover everything for IPv6
+		const char* r = inet_ntop(IPv6, &addr, str, 64);
+		if (r == nullptr) {
+			throw sysErr(errno);
+		}
+		m_name = std::string(r);
 	}
 	IPv6Address::operator sockaddr_in6() const { //Cast to C struct
 		sockaddr_in6 addr;
