@@ -301,7 +301,7 @@ namespace sks {
 		return addrs;
 	}
 	std::string unixAddress::name() const {
-		if (m_addr.size() > 0 && m_addr[0] != '\0') {
+		if (named()) {
 			//pathname, can be displayed as is
 			return std::string(m_addr.begin(), m_addr.end() - 1);
 		} else if (m_addr.size() == 0) {
@@ -309,6 +309,9 @@ namespace sks {
 		} else {
 			return "abstract unix address";
 		}
+	}
+	bool unixAddress::named() const {
+		return m_addr.size() > 0 && m_addr[0] != '\0';
 	}
 
 	/* ax25Address (Not supported, hopefully in the future)

@@ -109,6 +109,7 @@ namespace sks {
 		operator sockaddr_storage() const;
 		
 		std::string name() const;
+		bool named() const;
 	};
 	
 	//Planning for ax25 address, cannot develop/test due to limited support and little documentation
