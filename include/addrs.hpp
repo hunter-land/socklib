@@ -67,6 +67,8 @@ namespace sks {
 		
 		addressBase();
 	public:
+		virtual ~addressBase();
+
 		virtual operator sockaddr_storage() const = 0;
 		virtual operator socklen_t() const = 0;
 	
