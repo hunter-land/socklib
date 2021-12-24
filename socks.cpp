@@ -296,7 +296,7 @@ namespace sks {
 	
 	address socket::connectedAddress() {
 		sockaddr_storage sa;
-		socklen_t salen;
+		socklen_t salen = sizeof(sa);
 		int e = getpeername(m_sockFD, (sockaddr*)&sa, &salen);
 		if (e == -1) {
 			throw sysErr(errno);
@@ -305,7 +305,7 @@ namespace sks {
 	}
 	address socket::localAddress() {
 		sockaddr_storage sa;
-		socklen_t salen;
+		socklen_t salen = sizeof(sa);
 		int e = getsockname(m_sockFD, (sockaddr*)&sa, &salen);
 		if (e == -1) {
 			throw sysErr(errno);
