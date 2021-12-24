@@ -56,6 +56,8 @@ namespace sks {
 		//This is needed because we are going to do an assignment operator on the pointer, so it can't be null
 		*m_base = *addr.m_base; //We do it this way so we don't end up pointing to the same memory (copy is still copying)
 	}
+	address::address(const addressBase& addr) : address((sockaddr_storage)addr, (socklen_t)addr) {
+	}
 	address::~address() {
 		delete m_base;
 	}
@@ -77,6 +79,7 @@ namespace sks {
 	}
 
 	addressBase::addressBase() {}
+	addressBase::~addressBase() {}
 	domain addressBase::addressDomain() const {
 		return m_domain;
 	}

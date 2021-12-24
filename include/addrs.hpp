@@ -49,6 +49,7 @@ namespace sks {
 		address(std::string addrstr, domain d = (domain)0);
 		address(sockaddr_storage from, socklen_t len);
 		address(const address& addr);
+		address(const addressBase& addr);
 		~address();
 
 		address& operator=(const address& addr);
