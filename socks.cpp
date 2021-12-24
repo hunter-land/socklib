@@ -5,6 +5,7 @@ extern "C" {
 	#include <sys/socket.h> //general socket
 	#include <unistd.h> //close(...) and unlink(...)
 	#include <poll.h> //poll(...)
+	#include <unistd.h> //unlink(...)
 }
 #include <vector>
 #include <chrono>
@@ -82,10 +83,15 @@ namespace sks {
 				//Throwing in a deconstructor is bad for reasons, so don't throw exceptions
 			}
 			
-			//TODO: Fix-up and un-comment this
-			//if (m_domain == unix && bound) {
-			//	unlink(const char *pathname);
-			//}
+			if (m_domain == unix) {
+				address local = localAddress();
+				sockaddr_storage storage = local;
+				unixAddress localUnix = unixAddress(*(sockaddr_un*)&storage, (socklen_t)local);
+				if (localUnix.named()) {
+					//We are currently bound to a named unix address, unlink it
+					unlink(localUnix.name().c_str());
+				}
+			}
 		}
 	}
 	
