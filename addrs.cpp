@@ -160,9 +160,7 @@ namespace sks {
 		if (r == nullptr) {
 			throw sysErr(errno);
 		}
-		m_name = std::string(r);
-		m_name += ":";
-		m_name += m_port;
+		m_name = std::string(r) + ":" + std::to_string(m_port);
 	}
 	IPv4Address::operator sockaddr_in() const { //Cast to C struct
 		sockaddr_in addr;
@@ -268,10 +266,7 @@ namespace sks {
 		if (r == nullptr) {
 			throw sysErr(errno);
 		}
-		m_name = "[";
-		m_name += std::string(r);
-		m_name += "]:";
-		m_name += m_port;
+		m_name = "[" + std::string(r) + "]:" + std::to_string(m_port);
 	}
 	IPv6Address::operator sockaddr_in6() const { //Cast to C struct
 		sockaddr_in6 addr;
