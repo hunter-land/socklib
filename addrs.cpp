@@ -10,42 +10,75 @@ extern "C" {
 
 namespace sks {
 	
-	address::address() {}
-	domain address::addressDomain() const {
-		return m_domain;
+	address::address(std::string addrstr, domain d) {
+		//If we are not given a specific domain to check, try to parse as: IPv6, IPv4
+		switch (d) {
+			case IPv4:
+				m_base = new IPv4Address(addrstr);
+				break;
+			case IPv6:
+				m_base = new IPv6Address(addrstr);
+				break;
+			case unix:
+				m_base = new unixAddress(addrstr);
+				break;
+			default: //No/unknown domain given, do guess-and-check address resolving
+				try {
+					m_base = new IPv6Address(addrstr);
+					break;
+				} catch (std::exception& e) {} //Do nothing, just try the next one
+				try {
+					m_base = new IPv4Address(addrstr);
+					break;
+				} catch (std::exception& e) {}
+				throw std::runtime_error("Could not parse string to address. You may need to specify domain.");
+		}
 	}
-	bool createAddress(const std::string addrstr, address& to) {
-		//try order:
-		//ipv6
-		//ipv4
-		try {
-			IPv6Address addr(addrstr);
-			to = addr;
-			return true;
-		} catch (std::exception&) {}
-		try {
-			IPv4Address addr(addrstr);
-			to = addr;
-			return true;
-		} catch (std::exception&) {}
-		return false;
-	}
-	void createAddress(const sockaddr_storage from, const socklen_t len, address& to) {
+	address::address(sockaddr_storage from, socklen_t len) {
 		//call appropriate constructor
 		switch (from.ss_family) {
 			case IPv4:
-				to = IPv4Address(*(sockaddr_in*)&from);
+				m_base = new IPv4Address(*(sockaddr_in*)&from);
 				break;
 			case IPv6:
-				to = IPv6Address(*(sockaddr_in6*)&from);
+				m_base = new IPv6Address(*(sockaddr_in6*)&from);
 				break;
 			case unix:
-				to = unixAddress(*(sockaddr_un*)&from, len);
+				m_base = new unixAddress(*(sockaddr_un*)&from, len);
 				break;
 			default:
 				//Domain not supported
 				throw sysErr(EFAULT);
 		}
+	}
+	address::address(const address& addr) {
+		m_base = new unixAddress(""); //Create a blank unixAddress (can be any address)
+		//This is needed because we are going to do an assignment operator on the pointer, so it can't be null
+		*m_base = *addr.m_base; //We do it this way so we don't end up pointing to the same memory (copy is still copying)
+	}
+	address::~address() {
+		delete m_base;
+	}
+	address& address::operator=(const address& addr) {
+		*m_base = *addr.m_base;
+		return *this;
+	}
+	address::operator sockaddr_storage() const {
+		return (sockaddr_storage)*m_base;
+	}
+	address::operator socklen_t() const {
+		return (socklen_t)*m_base;
+	}
+	domain address::addressDomain() const {
+		return m_base->addressDomain();
+	}
+	std::string address::name() const {
+		return m_base->name();
+	}
+
+	addressBase::addressBase() {}
+	domain addressBase::addressDomain() const {
+		return m_domain;
 	}
 	
 	IPv4Address::IPv4Address(uint16_t port) : IPv4Address("0.0.0.0:" + std::to_string(port)) {} //Construct an any address

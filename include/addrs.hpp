@@ -35,13 +35,38 @@ namespace sks {
 	};
 
 	
-	//address base-class
+	class addressBase;
+	class IPv4Address;
+	class IPv6Address;
+	class unixAddress;
+	//class ax25Address;
+
+	//generic address class
 	class address {
+	protected:
+		addressBase* m_base;
+	public:
+		address(std::string addrstr, domain d = (domain)0);
+		address(sockaddr_storage from, socklen_t len);
+		address(const address& addr);
+		~address();
+
+		address& operator=(const address& addr);
+
+		operator sockaddr_storage() const;
+		operator socklen_t() const;
+
+		domain addressDomain() const;
+		std::string name() const;
+	};
+
+	//address base-class
+	class addressBase {
 	protected:
 		domain m_domain; //Domain of this address (each domain should have its own, specific, child-class)
 		
-		address();
-	public:	
+		addressBase();
+	public:
 		virtual operator sockaddr_storage() const = 0;
 		virtual operator socklen_t() const = 0;
 	
@@ -51,12 +76,12 @@ namespace sks {
 		//Must be implemented by child classes
 		virtual std::string name() const = 0;
 	};
-	bool createAddress(const std::string addrstr, address& to); //(try to) create an address based on string alone
-	void createAddress(const sockaddr_storage from, const socklen_t len, address& to); //Convert sockaddr to address
+	//bool createAddress(const std::string addrstr, addressBase& to); //(try to) create an address based on string alone
+	//void createAddress(const sockaddr_storage from, const socklen_t len, addressBase& to); //Convert sockaddr to address
 	//Both createAddress functions create either an IPv4 or IPv6 address (No unix, use unix directly if needed)
 
 
-	class IPv4Address : public address {
+	class IPv4Address : public addressBase {
 	protected:
 		std::array<uint8_t, 4> m_addr; //32-bit address
 		uint16_t m_port = 0;
@@ -74,7 +99,7 @@ namespace sks {
 		std::string name() const;
 	};
 	
-	class IPv6Address : public address {
+	class IPv6Address : public addressBase {
 	protected:
 		std::array<uint16_t, 8> m_addr; //128-bit address
 		uint16_t m_port = 0;
@@ -95,7 +120,7 @@ namespace sks {
 		std::string name() const;
 	};
 	
-	class unixAddress : public address {
+	class unixAddress : public addressBase {
 	protected:
 		//null-terminated path name
 		//unnamed (size == 0)
@@ -114,7 +139,7 @@ namespace sks {
 	
 	//Planning for ax25 address, cannot develop/test due to limited support and little documentation
 	/*
-	class ax25Address : public address {
+	class ax25Address : public addressBase {
 	protected:
 		std::string m_call; //Callsign KI7SKS or similar
 		char m_ssid;

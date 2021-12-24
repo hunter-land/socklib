@@ -209,7 +209,7 @@ namespace sks {
 			throw sysErr(errno);
 		}
 		buffer.resize(r); //These calls return the number of bytes received
-		createAddress(sa, salen, from);
+		from = address(sa, salen);
 		return buffer;
 	}
 	
@@ -288,29 +288,23 @@ namespace sks {
 		return (pfd.revents & POLLIN) == POLLIN;
 	}
 	
-	bool socket::connectedAddress(address& address) {
+	address socket::connectedAddress() {
 		sockaddr_storage sa;
 		socklen_t salen;
 		int e = getpeername(m_sockFD, (sockaddr*)&sa, &salen);
 		if (e == -1) {
-			if (e == ENOTCONN) {
-				//Not connected
-				//This should be removed, and instead a function to get an isConnected boolean implemented to seperate function
-				return false;
-			}
 			throw sysErr(errno);
 		}
-		createAddress(sa, salen, address);
-		return true;
+		return address(sa, salen);
 	}
-	void socket::localAddress(address& address) {
+	address socket::localAddress() {
 		sockaddr_storage sa;
 		socklen_t salen;
 		int e = getsockname(m_sockFD, (sockaddr*)&sa, &salen);
 		if (e == -1) {
 			throw sysErr(errno);
 		}
-		createAddress(sa, salen, address);
+		return address(sa, salen);
 	}
 
 

@@ -78,8 +78,8 @@ namespace sks {
 		
 		//Important utility functions
 		//bool connected();
-		bool connectedAddress(address& address);
-		void localAddress(address& address);
+		address connectedAddress();
+		address localAddress();
 	};
 	
 	std::pair<socket, socket> createUnixPair(type t, int protocol = 0);
