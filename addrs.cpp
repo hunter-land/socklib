@@ -72,6 +72,24 @@ namespace sks {
 	address::operator socklen_t() const {
 		return (socklen_t)*m_base;
 	}
+	address::operator IPv4Address() const {
+		if (addressDomain() != IPv4) {
+			throw std::runtime_error("Cannot cast non-IPv4 address to IPv4 address");
+		}
+		return *(IPv4Address*)m_base;
+	}
+	address::operator IPv6Address() const {
+		if (addressDomain() != IPv6) {
+			throw std::runtime_error("Cannot cast non-IPv6 address to IPv6 address");
+		}
+		return *(IPv6Address*)m_base;
+	}
+	address::operator unixAddress() const {
+		if (addressDomain() != unix) {
+			throw std::runtime_error("Cannot cast non-unix address to unix address");
+		}
+		return *(unixAddress*)m_base;
+	}
 	domain address::addressDomain() const {
 		return m_base->addressDomain();
 	}
