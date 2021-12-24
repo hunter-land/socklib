@@ -70,8 +70,8 @@ namespace sks {
 		std::chrono::microseconds sendTimeout();
 		void receiveTimeout(std::chrono::microseconds us);
 		std::chrono::microseconds receiveTimeout();
-		bool writeReady(int timeout = 0);
-		bool readReady(int timeout = 0);
+		bool writeReady(std::chrono::milliseconds us = std::chrono::milliseconds(0));
+		bool readReady(std::chrono::milliseconds us = std::chrono::milliseconds(0));
 		//set/get option bool
 		//set/get option int
 		//SO_BROADCAST

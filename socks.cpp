@@ -264,24 +264,24 @@ namespace sks {
 		return timevalToMicroseconds(tv);
 	}
 
-	bool socket::writeReady(int timeout) {
+	bool socket::writeReady(std::chrono::milliseconds timeout) {
 		//Check if the socket can be written to, waiting for up to <timeout> milliseconds
 		pollfd pfd;
 		pfd.fd = m_sockFD;
 		pfd.events = POLLOUT;
 		pfd.revents = 0; //Zero it out since we read later and don't want any issues
-		int r = poll(&pfd, 1, timeout);
+		int r = poll(&pfd, 1, timeout.count());
 		if (r == -1) {
 			throw sysErr(errno);
 		}
 		return (pfd.revents & POLLOUT) == POLLOUT;
 	}
-	bool socket::readReady(int timeout) {
+	bool socket::readReady(std::chrono::milliseconds timeout) {
 		pollfd pfd;
 		pfd.fd = m_sockFD;
 		pfd.events = POLLIN;
 		pfd.revents = 0; //Zero it out since we read later and don't want any issues
-		int r = poll(&pfd, 1, timeout);
+		int r = poll(&pfd, 1, timeout.count());
 		if (r == -1) {
 			throw sysErr(errno);
 		}
