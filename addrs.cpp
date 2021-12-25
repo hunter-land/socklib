@@ -63,6 +63,24 @@ namespace sks {
 	socklen_t address::size() const {
 		return m_addresses.base->size();
 	}
+	address::operator IPv4Address() const {
+		if (m_domain != IPv4) {
+			throw std::runtime_error("Cannot convert address domain");
+		}
+		return *m_addresses.IPv4;
+	}
+	address::operator IPv6Address() const {
+		if (m_domain != IPv6) {
+			throw std::runtime_error("Cannot convert address domain");
+		}
+		return *m_addresses.IPv6;
+	}
+	address::operator unixAddress() const {
+		if (m_domain != unix) {
+			throw std::runtime_error("Cannot convert address domain");
+		}
+		return *m_addresses.unix;
+	}
 	domain address::addressDomain() const {
 		return m_domain;
 	}

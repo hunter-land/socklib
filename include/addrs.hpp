@@ -57,6 +57,9 @@ namespace sks {
 	
 		operator sockaddr_storage() const;
 		socklen_t size() const;
+		explicit operator IPv4Address() const;
+		explicit operator IPv6Address() const;
+		explicit operator unixAddress() const;
 		
 		domain addressDomain() const;
 		std::string name() const;
