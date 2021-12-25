@@ -34,49 +34,45 @@ namespace sks {
 		raw = SOCK_RAW			//Raw access to socket layer; Experimental in this context
 	};
 
-	
 	class addressBase;
 	class IPv4Address;
 	class IPv6Address;
 	class unixAddress;
 	//class ax25Address;
 
-	//generic address class
+	//generic address class	
 	class address {
 	protected:
-		addressBase* m_base;
+		domain m_domain; //Domain of this address (each domain should have its own, specific, child-class)
+		union {
+			IPv4Address* IPv4;
+			IPv6Address* IPv6;
+			unixAddress* unix;
+			addressBase* base;
+		} m_addresses;
 	public:
 		address(std::string addrstr, domain d = (domain)0);
 		address(sockaddr_storage from, socklen_t len);
-		address(const address& addr);
 		address(const addressBase& addr);
-		~address();
-
-		address& operator=(const address& addr);
-
+	
 		operator sockaddr_storage() const;
-		operator socklen_t() const;
-		operator IPv4Address() const;
-		operator IPv6Address() const;
-		operator unixAddress() const;
-
+		socklen_t size() const;
+		
 		domain addressDomain() const;
 		std::string name() const;
 	};
 
-	//address base-class
+	//address base-class/interface
 	class addressBase {
 	protected:
-		domain m_domain; //Domain of this address (each domain should have its own, specific, child-class)
 		
 		addressBase();
 	public:
 		virtual ~addressBase();
 
 		virtual operator sockaddr_storage() const = 0;
-		virtual operator socklen_t() const = 0;
+		virtual socklen_t size() const = 0;
 	
-		domain addressDomain() const;
 		//Get a human-readable representation of the address
 		//This string should be usable to construct an identical address
 		//Must be implemented by child classes
@@ -97,7 +93,7 @@ namespace sks {
 		IPv4Address(const std::string addrstr); //Parse address from string
 		IPv4Address(const sockaddr_in addr); //Construct from C struct
 		operator sockaddr_in() const; //Cast to C struct
-		operator socklen_t() const; //Length associated with above (sockaddr_in cast)
+		socklen_t size() const; //Length associated with above (sockaddr_in cast)
 		operator sockaddr_storage() const;
 	
 		std::array<uint8_t, 4> addr() const;
@@ -115,7 +111,7 @@ namespace sks {
 		IPv6Address(const std::string addrstr); //Parse address from string
 		IPv6Address(const sockaddr_in6 addr); //Construct from C struct
 		operator sockaddr_in6() const; //Cast to C struct
-		operator socklen_t() const; //Length associated with above (sockaddr_in6 cast)
+		socklen_t size() const; //Length associated with above (sockaddr_in6 cast)
 		operator sockaddr_storage() const;
 		
 		std::array<uint16_t, 8> addr() const;
@@ -136,7 +132,7 @@ namespace sks {
 		unixAddress(const std::string addrstr); //Parse address from string
 		unixAddress(const sockaddr_un addr, const socklen_t len); //Construct from C struct
 		operator sockaddr_un() const; //Cast to C struct
-		operator socklen_t() const; //Length associated with above (sockaddr_un cast)
+		socklen_t size() const; //Length associated with above (sockaddr_un cast)
 		operator sockaddr_storage() const;
 		
 		std::string name() const;

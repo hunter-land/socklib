@@ -10,103 +10,72 @@ extern "C" {
 }
 
 namespace sks {
-	
+
 	address::address(std::string addrstr, domain d) {
 		//If we are not given a specific domain to check, try to parse as: IPv6, IPv4
 		switch (d) {
 			case IPv4:
-				m_base = new IPv4Address(addrstr);
+				m_addresses.IPv4 = new IPv4Address(addrstr);
+				m_domain = IPv4;
 				break;
 			case IPv6:
-				m_base = new IPv6Address(addrstr);
+				m_addresses.IPv6 = new IPv6Address(addrstr);
+				m_domain = IPv6;
 				break;
 			case unix:
-				m_base = new unixAddress(addrstr);
+				m_addresses.unix = new unixAddress(addrstr);
+				m_domain = unix;
 				break;
 			default: //No/unknown domain given, do guess-and-check address resolving
 				try {
-					m_base = new IPv6Address(addrstr);
+					m_addresses.IPv6 = new IPv6Address(addrstr);
+					m_domain = IPv6;
 					break;
 				} catch (std::exception& e) {} //Do nothing, just try the next one
 				try {
-					m_base = new IPv4Address(addrstr);
+					m_addresses.IPv4 = new IPv4Address(addrstr);
+					m_domain = IPv4;
 					break;
 				} catch (std::exception& e) {}
 				throw std::runtime_error("Could not parse string to address. You may need to specify domain.");
 		}
 	}
 	address::address(sockaddr_storage from, socklen_t len) {
-		//call appropriate constructor
+		m_domain = (domain)from.ss_family;
 		switch (from.ss_family) {
 			case IPv4:
-				m_base = new IPv4Address(*(sockaddr_in*)&from);
+				m_addresses.IPv4 = new IPv4Address(*(sockaddr_in*)&from);
 				break;
 			case IPv6:
-				m_base = new IPv6Address(*(sockaddr_in6*)&from);
+				m_addresses.IPv6 = new IPv6Address(*(sockaddr_in6*)&from);
 				break;
 			case unix:
-				m_base = new unixAddress(*(sockaddr_un*)&from, len);
-				break;
+				m_addresses.unix = new unixAddress(*(sockaddr_un*)&from, len);
 			default:
 				//Domain not supported
 				throw sysErr(EFAULT);
 		}
 	}
-	address::address(const address& addr) {
-		m_base = new unixAddress(""); //Create a blank unixAddress (can be any address)
-		//This is needed because we are going to do an assignment operator on the pointer, so it can't be null
-		*m_base = *addr.m_base; //We do it this way so we don't end up pointing to the same memory (copy is still copying)
-	}
-	address::address(const addressBase& addr) : address((sockaddr_storage)addr, (socklen_t)addr) {
-	}
-	address::~address() {
-		delete m_base;
-	}
-	address& address::operator=(const address& addr) {
-		*m_base = *addr.m_base;
-		return *this;
-	}
+	address::address(const addressBase& addr) : address((sockaddr_storage)addr, addr.size()) {}
 	address::operator sockaddr_storage() const {
-		return (sockaddr_storage)*m_base;
+		return (sockaddr_storage)*m_addresses.base;
 	}
-	address::operator socklen_t() const {
-		return (socklen_t)*m_base;
-	}
-	address::operator IPv4Address() const {
-		if (addressDomain() != IPv4) {
-			throw std::runtime_error("Cannot cast non-IPv4 address to IPv4 address");
-		}
-		return *(IPv4Address*)m_base;
-	}
-	address::operator IPv6Address() const {
-		if (addressDomain() != IPv6) {
-			throw std::runtime_error("Cannot cast non-IPv6 address to IPv6 address");
-		}
-		return *(IPv6Address*)m_base;
-	}
-	address::operator unixAddress() const {
-		if (addressDomain() != unix) {
-			throw std::runtime_error("Cannot cast non-unix address to unix address");
-		}
-		return *(unixAddress*)m_base;
+	socklen_t address::size() const {
+		return m_addresses.base->size();
 	}
 	domain address::addressDomain() const {
-		return m_base->addressDomain();
+		return m_domain;
 	}
 	std::string address::name() const {
-		return m_base->name();
+		return m_addresses.base->name();
 	}
 
 	addressBase::addressBase() {}
 	addressBase::~addressBase() {}
-	domain addressBase::addressDomain() const {
-		return m_domain;
-	}
-	
+
 	IPv4Address::IPv4Address(uint16_t port) : IPv4Address("0.0.0.0:" + std::to_string(port)) {} //Construct an any address
 	IPv4Address::IPv4Address(const std::string addrstr) { //Parse address from string
 		m_name = addrstr;
-		m_domain = IPv4;
 		//Parse it!
 		/*Accepted formats:
 		 *	x.x.x.x
@@ -169,7 +138,6 @@ namespace sks {
 		freeaddrinfo(results);
 	}
 	IPv4Address::IPv4Address(const sockaddr_in addr) { //Construct from C struct
-		m_domain = IPv4;
 		memcpy(m_addr.data(), &addr.sin_addr, 4);
 		m_port = ntohs(addr.sin_port);
 		//Set m_name accordingly
@@ -184,16 +152,16 @@ namespace sks {
 		sockaddr_in addr;
 		addr.sin_family = AF_INET;
 		memcpy(&addr.sin_addr, m_addr.data(), 4);
-		addr.sin_port = ntohs(m_port);
+		addr.sin_port = htons(m_port);
 		memset(addr.sin_zero, 0, 8);
 		return addr;
 	}
-	IPv4Address::operator socklen_t() const {
+	socklen_t IPv4Address::size() const {
 		return sizeof(sockaddr_in);
 	}
 	IPv4Address::operator sockaddr_storage() const {
 		sockaddr_in addrl = (sockaddr_in)(*this); //Cast to correct struct
-		socklen_t addrll = (socklen_t)(*this); //Cast to get length of correct struct
+		socklen_t addrll = this->size(); //Cast to get length of correct struct
 		sockaddr_storage addrs;
 		memcpy(&addrs, &addrl, addrll);
 		return addrs;
@@ -211,7 +179,6 @@ namespace sks {
 	IPv6Address::IPv6Address(uint16_t port) : IPv6Address("[::]:" + std::to_string(port)) {} //Construct an any address
 	IPv6Address::IPv6Address(const std::string addrstr) { //Parse address from string
 		m_name = addrstr;
-		m_domain = IPv6;
 		//Parse it!
 		/*Accepted formats:
 		 *	f:f:f:f:f:f:f:f
@@ -275,7 +242,6 @@ namespace sks {
 		freeaddrinfo(results);
 	}
 	IPv6Address::IPv6Address(const sockaddr_in6 addr) { //Construct from C struct
-		m_domain = IPv6;
 		memcpy(m_addr.data(), &addr.sin6_addr, 16);
 		m_port = ntohs(addr.sin6_port);
 		//Set m_name accordingly
@@ -293,12 +259,12 @@ namespace sks {
 		addr.sin6_port = htons(m_port);
 		return addr;
 	}
-	IPv6Address::operator socklen_t() const {
+	socklen_t IPv6Address::size() const {
 		return sizeof(sockaddr_in6);
 	}
 	IPv6Address::operator sockaddr_storage() const {
 		sockaddr_in6 addrl = (sockaddr_in6)(*this); //Cast to correct struct
-		socklen_t addrll = (socklen_t)(*this); //Cast to get length of correct struct
+		socklen_t addrll = this->size(); //Cast to get length of correct struct
 		sockaddr_storage addrs;
 		memcpy(&addrs, &addrl, addrll);
 		return addrs;
@@ -324,12 +290,10 @@ namespace sks {
 
 	unixAddress::unixAddress(const std::string addrstr) { //Parse address from string
 		//pathnames only
-		m_domain = unix;
 		m_addr = std::vector<char>(addrstr.begin(), addrstr.end());
 		m_addr.push_back('\0');
 	}
 	unixAddress::unixAddress(const sockaddr_un addr, const socklen_t len) { //Construct from C struct
-		m_domain = unix;
 		size_t pathlen = len - sizeof(sa_family_t);
 		if (pathlen > 0 && addr.sun_path[0] != '\0') {
 			//pathname
@@ -350,7 +314,7 @@ namespace sks {
 		memcpy(addr.sun_path, m_addr.data(), m_addr.size());
 		return addr;
 	}
-	unixAddress::operator socklen_t() const {
+	socklen_t unixAddress::size() const {
 		if (m_addr.size() == 0) {
 			//unnamed
 			return sizeof(sa_family_t);
@@ -364,7 +328,7 @@ namespace sks {
 	}
 	unixAddress::operator sockaddr_storage() const {
 		sockaddr_un addrl = (sockaddr_un)(*this); //Cast to correct struct
-		socklen_t addrll = (socklen_t)(*this); //Cast to get length of correct struct
+		socklen_t addrll = this->size(); //Cast to get length of correct struct
 		sockaddr_storage addrs;
 		memcpy(&addrs, &addrl, addrll);
 		return addrs;

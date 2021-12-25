@@ -86,7 +86,7 @@ namespace sks {
 			if (m_domain == unix) {
 				address local = localAddress();
 				sockaddr_storage storage = local;
-				unixAddress localUnix = unixAddress(*(sockaddr_un*)&storage, (socklen_t)local);
+				unixAddress localUnix = unixAddress(*(sockaddr_un*)&storage, local.size());
 				if (localUnix.named()) {
 					//We are currently bound to a named unix address, unlink it
 					unlink(localUnix.name().c_str());
@@ -102,7 +102,7 @@ namespace sks {
 		}
 		//Do binding
 		sockaddr_storage addr = address;
-		int e = ::bind(m_sockFD, (sockaddr*)&addr, (socklen_t)address);
+		int e = ::bind(m_sockFD, (sockaddr*)&addr, address.size());
 		//On error, -1 is returned, and errno is set appropriately.
 		if (e == -1) {
 			//NOTICE: This table (from man bind(2) isn't fully correct, EFAULT can be given if address has mismatching AF with socket)
@@ -164,7 +164,7 @@ namespace sks {
 	
 	void socket::connect(const address& address) {
 		sockaddr_storage addr = address;
-		int e = ::connect(m_sockFD, (sockaddr*)&addr, (socklen_t)address);
+		int e = ::connect(m_sockFD, (sockaddr*)&addr, address.size());
 		//On error, -1 is returned, and errno is set appropriately.
 		if (e == -1) {
 			throw sysErr(errno);
@@ -189,7 +189,7 @@ namespace sks {
 		size_t sent = 0;
 		//send may not send all data at once, so we have a loop here
 		while (sent < data.size()) {
-			ssize_t r = ::sendto(m_sockFD, data.data() + sent, data.size() - sent, 0, (sockaddr*)&addr, (socklen_t)to); //Flags of 0 only for now, might open up later
+			ssize_t r = ::sendto(m_sockFD, data.data() + sent, data.size() - sent, 0, (sockaddr*)&addr, to.size()); //Flags of 0 only for now, might open up later
 			if (r == -1) {
 				throw sysErr(errno);
 			}
