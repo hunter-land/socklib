@@ -67,6 +67,8 @@ namespace sks {
 	socket::~socket() {
 		//If we have just done a move operation on this socket, file descriptor should not be touched/read
 		if (m_validFD) {
+			//(Potentially) used later, but cannot be got after shutdown and closing
+			address local = localAddress();
 			//Shutdown socket
 			//This makes sure all remaining bytes are sent to network before closing it up
 			//Long story short, no data is lost unless it is lost while traversing the network
@@ -100,9 +102,7 @@ namespace sks {
 			}
 			
 			if (m_domain == unix) {
-				address local = localAddress();
-				sockaddr_storage storage = local;
-				unixAddress localUnix = unixAddress(*(sockaddr_un*)&storage, local.size());
+				unixAddress localUnix = (unixAddress)local;
 				if (localUnix.named()) {
 					//We are currently bound to a named unix address, unlink it
 					unlink(localUnix.name().c_str());

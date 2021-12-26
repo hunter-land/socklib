@@ -51,6 +51,7 @@ namespace sks {
 				break;
 			case unix:
 				m_addresses.unix = new unixAddress(*(sockaddr_un*)&from, len);
+				break;
 			default:
 				//Domain not supported
 				throw sysErr(EFAULT);
@@ -307,21 +308,24 @@ namespace sks {
 	}
 
 	unixAddress::unixAddress(const std::string addrstr) { //Parse address from string
-		//pathnames only
+		//pathnames only (up to sizeof(sockaddr_un.sun_pathlen))
+		size_t max = sizeof(sockaddr_un::sun_path);
+		if (addrstr.size() + 1 > max) {
+			throw std::runtime_error("pathname too long for unix address");
+		}
 		m_addr = std::vector<char>(addrstr.begin(), addrstr.end());
-		m_addr.push_back('\0');
 	}
 	unixAddress::unixAddress(const sockaddr_un addr, const socklen_t len) { //Construct from C struct
-		size_t pathlen = len - sizeof(sa_family_t);
-		if (pathlen > 0 && addr.sun_path[0] != '\0') {
+		if ((size_t)len > offsetof(sockaddr_un, sun_path) + 1 && addr.sun_path[0] != '\0') {
 			//pathname
+			size_t pathlen = len - offsetof(struct sockaddr_un, sun_path) - 1;
 			m_addr.resize(pathlen);
 			memcpy(m_addr.data(), addr.sun_path, pathlen);
-			m_addr.push_back('\0');
-		} else if (pathlen > 0) {
+		} else if ((size_t)len > sizeof(sa_family_t)) {
 			//abstract
-			m_addr.resize(pathlen);
-			memcpy(m_addr.data(), addr.sun_path, pathlen);
+			size_t namelen = len - sizeof(sa_family_t);
+			m_addr.resize(namelen);
+			memcpy(m_addr.data(), addr.sun_path, namelen);
 		} else {
 			//unnamed, nothing else to do
 		}
@@ -330,6 +334,7 @@ namespace sks {
 		sockaddr_un addr;
 		addr.sun_family = AF_UNIX;
 		memcpy(addr.sun_path, m_addr.data(), m_addr.size());
+		addr.sun_path[m_addr.size()] = 0; //NULL-terminate
 		return addr;
 	}
 	socklen_t unixAddress::size() const {
@@ -341,7 +346,7 @@ namespace sks {
 			return m_addr.size() + sizeof(sa_family_t);
 		} else {
 			//pathname
-			return offsetof(struct sockaddr_un, sun_path) + m_addr.size();
+			return offsetof(struct sockaddr_un, sun_path) + m_addr.size() + 1;
 		}
 	}
 	unixAddress::operator sockaddr_storage() const {
@@ -354,7 +359,7 @@ namespace sks {
 	std::string unixAddress::name() const {
 		if (named()) {
 			//pathname, can be displayed as is
-			return std::string(m_addr.begin(), m_addr.end() - 1);
+			return std::string(m_addr.begin(), m_addr.end());
 		} else if (m_addr.size() == 0) {
 			return "unnamed unix address";
 		} else {
