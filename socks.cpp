@@ -67,18 +67,34 @@ namespace sks {
 	socket::~socket() {
 		//If we have just done a move operation on this socket, file descriptor should not be touched/read
 		if (m_validFD) {
-			//Close/disconnect/shutdown socket
+			//Shutdown socket
+			//This makes sure all remaining bytes are sent to network before closing it up
+			//Long story short, no data is lost unless it is lost while traversing the network
+			//Also may send protocol info, such as a FIN for TCP
+			shutdown(m_sockFD, SHUT_RDWR);
+			//On error, -1 shall be returned and errno set to indicate the error.
+			//For the reasons below, no checking is done on shutdown(...)
+			/*-----------------------------------------------------------------------------------------\
+			|  EBADF   | The socket argument is not a valid file descriptor.                           | EBADF isn't checked since we personally handle the fd
+			|  EINVAL  | The how argument is invalid.                                                  | EINVAL is a set value and will not happen in normal operation
+			| ENOTCONN | The socket is not connected.                                                  | ENOTCONN may occur here under normal operation, ignore if it does
+			| ENOTSOCK | The socket argument does not refer to a socket.                               | ENOTSOCK isn't checked since we personally handle the fd
+			| ENOBUFS  | Insufficient resources were available in the system to perform the operation. |
+			\-----------------------------------------------------------------------------------------*/
+			
+			//Close socket fully
+			//Any bytes not transmitted are gone
+			//I'm not certain, but I think this isn't a formal/clean close either
 			int e = close(m_sockFD);
 			//On error, -1 is returned, and errno is set appropriately.
 			if (e == -1) {
 				//Error closing socket
 				/*---------------------------------------------------------------------\
-				| EBADF | fd isn't a valid open file descriptor.                       |
+				| EBADF | fd isn't a valid open file descriptor.                       | EBADF isn't checked since we personally handle the fd
 				| EINTR | The close() call was interrupted by a signal; see signal(7). |
 				|  EIO  | An I/O error occurred.                                       |
-				\----------------------------------------------------------------------/
-				EBADF isn't checked since we personally handle the fd
-				*/
+				\---------------------------------------------------------------------*/
+				
 				//throw sysErr(errno);
 				//Throwing in a deconstructor is bad for reasons, so don't throw exceptions
 			}
