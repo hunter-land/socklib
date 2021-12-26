@@ -63,7 +63,7 @@ namespace sks {
 		std::swap(m_type, s.m_type);
 		std::swap(m_protocol, s.m_protocol);
 	}
-	
+
 	socket::~socket() {
 		//If we have just done a move operation on this socket, file descriptor should not be touched/read
 		if (m_validFD) {
@@ -166,9 +166,7 @@ namespace sks {
 	}
 	
 	socket socket::accept() {
-		sockaddr_storage sa;
-		socklen_t salen;
-		int peerFD = ::accept(m_sockFD, (sockaddr*)&sa, &salen);
+		int peerFD = ::accept(m_sockFD, nullptr, nullptr);
 		//On error, -1 is returned, and errno is set appropriately.
 		if (peerFD == -1) {
 			throw sysErr(errno);
@@ -225,7 +223,7 @@ namespace sks {
 	std::vector<uint8_t> socket::receive(address& from, size_t bufSize) {
 		std::vector<uint8_t> buffer(bufSize);
 		sockaddr_storage sa;
-		socklen_t salen;
+		socklen_t salen = sizeof(sa);
 		ssize_t r = recvfrom(m_sockFD, buffer.data(), buffer.size(), 0, (sockaddr*)&sa, &salen); //Flags of 0 only for now, might open up later
 		if (r == -1) {
 			throw sysErr(errno);
