@@ -6,10 +6,18 @@ extern "C" {
 	#include <sys/socket.h>
 	#include <netinet/in.h>
 	#include <sys/un.h>
-	//#include <linux/ax25.h> //Many systems don't have these header, and neither do I so I can't even test/develop for it, but I'd like to
-	//#include <netax25/ax25.h>
-	//#include <netax25/axlib.h>
-	//#include <netax25/axconfig.h>
+	
+	#if defined __has_include
+		#if __has_include (<linux/ax25.h>)
+			#include <linux/ax25.h> //Many systems don't have these header, and neither do I so I can't even test/develop for it, but I'd like to
+			//Update 12/27/2021: I am currently re-compiling with ax25 support on my Linux machine, so lets set some things up with guesswork meanwhile
+			//#include <netax25/ax25.h>
+			//#include <netax25/axlib.h>
+			//#include <netax25/axconfig.h>
+			
+			#define has_ax25
+		#endif
+	#endif
 }
 //This is a bit jank, I know, but it is because of the domain enum's `unix` name
 //The compiler thinks I am setting a number to a number if I don't undefine
@@ -24,7 +32,9 @@ namespace sks {
 		unix = AF_UNIX,
 		IPv4 = AF_INET,
 		IPv6 = AF_INET6
-		//ax25 = AF_AX25 //Maybe one day, when I can test it );
+		#ifdef has_ax25
+		, ax25 = AF_AX25 //Maybe one day, when I can test it );
+		#endif
 	};
 	enum type {
 		stream = SOCK_STREAM,	//Garuntees order and delivery of bytes; TCP in the IP world
@@ -38,7 +48,9 @@ namespace sks {
 	class IPv4Address;
 	class IPv6Address;
 	class unixAddress;
-	//class ax25Address;
+	#ifdef has_ax25
+	class ax25Address;
+	#endif
 
 	//generic address class	
 	class address {
@@ -48,6 +60,9 @@ namespace sks {
 			IPv4Address* IPv4;
 			IPv6Address* IPv6;
 			unixAddress* unix;
+			#ifdef has_ax25
+			ax25Address* ax25;
+			#endif
 			addressBase* base;
 		} m_addresses;
 	public:
@@ -60,6 +75,9 @@ namespace sks {
 		explicit operator IPv4Address() const;
 		explicit operator IPv6Address() const;
 		explicit operator unixAddress() const;
+		#ifdef has_ax25
+		explicit operator ax25Address() const;
+		#endif
 		
 		domain addressDomain() const;
 		std::string name() const;
@@ -143,23 +161,23 @@ namespace sks {
 	};
 	
 	//Planning for ax25 address, cannot develop/test due to limited support and little documentation
-	/*
+	#ifdef has_ax25
 	class ax25Address : public addressBase {
 	protected:
 		std::string m_call; //Callsign KI7SKS or similar
 		char m_ssid;
-		int m_ndigis;
+		int m_ndigits;
 		std::string m_name;
 	public:
 		ax25Address(const std::string addrstr); //Parse address from string
-		ax25Address(const sockaddr_ax25); //Construct from C struct
+		ax25Address(const sockaddr_ax25 addr); //Construct from C struct
 		operator sockaddr_ax25() const; //Cast to C struct
-		operator socklen_t() const; //Length associated with above (sockaddr_ax25 cast)
+		socklen_t size() const; //Length associated with above (sockaddr_ax25 cast)
 		
 		std::string call() const;
 		std::string callsign() const = call;
 		char ssid() const;
 		std::string name() const;
 	}
-	*/
+	#endif
 };

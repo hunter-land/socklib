@@ -7,6 +7,18 @@ extern "C" {
 	#include <sys/un.h>
 	#include <netdb.h>
 	#include <arpa/inet.h> //inet -> string
+	
+	#if defined __has_include
+		#if __has_include (<linux/ax25.h>)
+			#include <linux/ax25.h> //Many systems don't have these header, and neither do I so I can't even test/develop for it, but I'd like to
+			//Update 12/27/2021: I am currently re-compiling with ax25 support on my Linux machine, so lets set some things up with guesswork meanwhile
+			#include <netax25/ax25.h>
+			#include <netax25/axlib.h>
+			#include <netax25/axconfig.h>
+			
+			#define has_ax25
+		#endif
+	#endif
 }
 
 namespace sks {
@@ -82,6 +94,14 @@ namespace sks {
 		}
 		return *m_addresses.unix;
 	}
+	#ifdef has_ax25
+	address::operator ax25Address() const {
+		if (m_domain != ax25) {
+			throw std::runtime_error("Cannot convert address domain");
+		}
+		return *m_addresses.ax25;
+	}
+	#endif
 	domain address::addressDomain() const {
 		return m_domain;
 	}
@@ -370,34 +390,46 @@ namespace sks {
 		return m_addr.size() > 0 && m_addr[0] != '\0';
 	}
 
-	/* ax25Address (Not supported, hopefully in the future)
+	//ax25Address (Not supported, hopefully in the future)
+	#ifdef has_ax25
 	ax25Address::ax25Address(const std::string addrstr) { //Parse address from string
 		m_name = addrstr;
-		m_call = addrstr; //TODO: Remove any call suffix/ssid (ie "-1", "-2", etc)
-		m_ssid = ??; //TODO: Figure out what this needs to be
-		m_ndigis = 0; //TODO: What is this for, and when should it be set/what should it be set to?
+		
+		m_call.resize(ax25_address::ax25_call); //Make space
+		ax25_aton_entry(addrstr.c_str(), m_call.data()); //Put in callsign + SSID
+		
+		m_ndigits = 0; //TODO: What is this for, and when should it be set/what should it be set to?
+		
+		
+		
+		//m_call = addrstr; //TODO: Remove any call suffix/ssid (ie "-1", "-2", etc)
+		//m_ssid = ??; //TODO: Figure out what this needs to be
 		//Yes, yes I do.
 		//Furthermore, I may need to add support for `full_sockaddr_ax25` instead of just `sockaddr_ax25`
 		//As stated elsewhere, I cannot actually develop or test this due to documentation and lack of testing hardware
 	}
-	ax25Address::ax25Address(const sockaddr_ax25) { //Construct from C struct
-	
+	ax25Address::ax25Address(const sockaddr_ax25 addr) { //Construct from C struct
+		m_call.resize(ax25_address::ax25_call);
+		memcpy(m_call.data(), &addr.sax25_call, m_call.size()); //Copy call
+		m_ndigis = addr.sax25_ndigits;
 	}
 	ax25Address::operator sockaddr_ax25() const { //Cast to C struct
 		sockaddr_ax25 addr;
 		addr.sax25_family = AF_AX25;
-		int error = ax25_aton_entry(m_name, (char*)&addr.sax25_call);
-		if (error != 0) {
-			throw std::runtime_error("Could not get ax25 address from " + addrstr);
-		}
-		addr.sax25_ndigis = m_ndigis;
+		
+		//TODO: What should I do about callsign here?
+		//int error = ax25_aton_entry(m_name, (char*)&addr.sax25_call);
+		//if (error != 0) {
+		//	throw std::runtime_error("Could not get ax25 address from " + addrstr);
+		//}
+		addr.sax25_ndigis = m_ndigits;
 	}
-	ax25Address::operator socklen_t() const { //Length associated with above (sockaddr_ax25 cast)
+	ax25Address::socklen_t size() const { //Length associated with above (sockaddr_ax25 cast)
 		return sizeof(sockaddr_ax25);
 	}
 	ax25Address::operator sockaddr_storage() const {
 		sockaddr_ax25 addrl = (sockaddr_ax25)(*this); //Cast to correct struct
-		socklen_t addrll = (socklen_t)(*this); //Cast to get length of correct struct
+		socklen_t addrll = this->size(); //Cast to get length of correct struct
 		sockaddr_storage addrs;
 		memcpy(&addrs, &addrl, addrll);
 		return addrs;
@@ -411,5 +443,5 @@ namespace sks {
 	std::string ax25Address::name() const {
 		return m_name;
 	}
-	*/
+	#endif
 };
