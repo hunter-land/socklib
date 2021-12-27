@@ -10,11 +10,8 @@ extern "C" {
 	
 	#if defined __has_include
 		#if __has_include (<netax25/axlib.h>)
-			//#include <linux/ax25.h> //Many systems don't have these header, and neither do I so I can't even test/develop for it, but I'd like to
-			//Update 12/27/2021: I am currently re-compiling with ax25 support on my Linux machine, so lets set some things up with guesswork meanwhile
-			#include <netax25/ax25.h> //A redundent header of above?
+			#include <netax25/ax25.h> //ax25 support and structs
 			#include <netax25/axlib.h> //ax25 manipulations, such as ax25_aton
-			#include <netax25/axconfig.h>
 			
 			#define has_ax25
 		#endif
@@ -38,6 +35,12 @@ namespace sks {
 				m_addresses.unix = new unixAddress(addrstr);
 				m_domain = unix;
 				break;
+			#ifdef has_ax25
+				case ax25:
+					m_addresses.ax25 = new ax25Address(addrstr);
+					m_domain = ax25;
+					break;
+			#endif
 			default: //No/unknown domain given, do guess-and-check address resolving
 				try {
 					m_addresses.IPv6 = new IPv6Address(addrstr);
@@ -49,6 +52,12 @@ namespace sks {
 					m_domain = IPv4;
 					break;
 				} catch (std::exception& e) {}
+				#ifdef has_ax25
+					try {
+						m_addresses.ax25 = new ax25Address(addrstr);
+						m_domain = ax25;
+					} catch (std::exception& e) {}
+				#endif
 				throw std::runtime_error("Could not parse string to address. You may need to specify domain.");
 		}
 	}
@@ -64,6 +73,11 @@ namespace sks {
 			case unix:
 				m_addresses.unix = new unixAddress(*(sockaddr_un*)&from, len);
 				break;
+			#ifdef has_ax25
+				case ax25:
+					m_addresses.ax25 = new ax25Address(*(full_sockaddr_ax25*)&from, len);
+					break;
+			#endif
 			default:
 				//Domain not supported
 				throw sysErr(EFAULT);
@@ -392,7 +406,6 @@ namespace sks {
 
 	//ax25Address (Not supported, hopefully in the future)
 	#ifdef has_ax25
-	ax25Address::ax25Address() : ax25Address(null_ax25_address, sizeof(null_ax25_address)) { }
 	ax25Address::ax25Address(const std::string addrstr) { //Parse address from string
 		m_name = addrstr;
 		
@@ -406,13 +419,8 @@ namespace sks {
 		ax25Address(addr, len);
 	}
 	ax25Address::ax25Address(const full_sockaddr_ax25 addr, const socklen_t len) { //Construct from C struct
-		m_call.resize(ax25_address::ax25_call);
-		memcpy(m_call.data(), &addr.sax25_call, m_call.size()); //Copy call
-		m_ndigis = addr.sax25_ndigits;
-		
-		
 		//Get values out of `addr` and store
-		m_digis = addr.fsa_ax25.sax25_ndigis; //I assume this is the number of elements in fsa_digipeater (in basic sockaddr_ax25 for reading it as 0)
+		m_ndigis = addr.fsa_ax25.sax25_ndigis; //I assume this is the number of elements in fsa_digipeater (in basic sockaddr_ax25 for reading it as 0)
 		m_call = std::string(addr.fsa_ax25.sax25_call.ax25_call, 6); //Just callsign (6 characters)
 		m_ssid = addr.fsa_ax25.sax25_call.ax25_call[6]; //Last character is ssid (shifted ascii whatever that means)
 	}
@@ -421,12 +429,12 @@ namespace sks {
 		addr.fsa_ax25.sax25_family = AF_AX25;
 		memcpy(addr.fsa_ax25.sax25_call.ax25_call, m_call.data(), m_call.size()); //Copy in callsign
 		addr.fsa_ax25.sax25_call.ax25_call[6] = m_ssid; //Set ssid
-		addr.fsa_ax25.sax25_ndigis = m_digis;
+		addr.fsa_ax25.sax25_ndigis = m_ndigis;
 		
 		return addr;
 	}
-	ax25Address::socklen_t size() const { //Length associated with above (full_sockaddr_ax25 cast)
-		return sizeof(sockaddr_ax25 + sizeof(ax25_address) * 0); //NOTE: the sizeof * 0 is for the fsa_digipeater count, which is currently not tracked
+	socklen_t ax25Address::size() const { //Length associated with above (full_sockaddr_ax25 cast)
+		return sizeof(sockaddr_ax25) + sizeof(ax25_address) * 0; //NOTE: the sizeof * 0 is for the fsa_digipeater count, which is currently not tracked
 	}
 	ax25Address::operator sockaddr_storage() const {
 		full_sockaddr_ax25 addrl = (full_sockaddr_ax25)(*this); //Cast to correct struct

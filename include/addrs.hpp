@@ -9,11 +9,7 @@ extern "C" {
 	
 	#if defined __has_include
 		#if __has_include (<netax25/axlib.h>)
-			//#include <linux/ax25.h> //Many systems don't have these header, and neither do I so I can't even test/develop for it, but I'd like to
-			//Update 12/27/2021: I am currently re-compiling with ax25 support on my Linux machine, so lets set some things up with guesswork meanwhile
 			#include <netax25/ax25.h>
-			//#include <netax25/axconfig.h>
-			
 			#define has_ax25
 		#endif
 	#endif
@@ -168,7 +164,6 @@ namespace sks {
 		int m_ndigis; //I THINK this is number of digipeaters the address uses/goes through to be reached
 		std::string m_name;
 	public:
-		ax25Address(); //Null address (equivalent to null_ax25_address)
 		ax25Address(const std::string addrstr); //Parse address from string
 		ax25Address(const full_sockaddr_ax25 addr, const socklen_t len); //Construct from C struct
 		operator full_sockaddr_ax25() const; //Cast to C struct
