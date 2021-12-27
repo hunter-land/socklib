@@ -166,16 +166,17 @@ namespace sks {
 	protected:
 		std::string m_call; //Callsign KI7SKS or similar
 		char m_ssid;
-		int m_ndigits;
+		int m_ndigis; //I THINK this is number of digipeaters the address uses/goes through to be reached
 		std::string m_name;
 	public:
+		ax25Address(); //Null address (equivalent to null_ax25_address)
 		ax25Address(const std::string addrstr); //Parse address from string
-		ax25Address(const sockaddr_ax25 addr); //Construct from C struct
-		operator sockaddr_ax25() const; //Cast to C struct
-		socklen_t size() const; //Length associated with above (sockaddr_ax25 cast)
+		ax25Address(const full_sockaddr_ax25 addr, const socklen_t len); //Construct from C struct
+		operator full_sockaddr_ax25() const; //Cast to C struct
+		socklen_t size() const; //Length associated with above (full_sockaddr_ax25 cast)
+		operator sockaddr_storage() const;
 		
-		std::string call() const;
-		std::string callsign() const = call;
+		std::string callsign() const;
 		char ssid() const;
 		std::string name() const;
 	}

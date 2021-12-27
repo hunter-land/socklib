@@ -392,53 +392,54 @@ namespace sks {
 
 	//ax25Address (Not supported, hopefully in the future)
 	#ifdef has_ax25
+	ax25Address::ax25Address() : ax25Address(null_ax25_address, sizeof(null_ax25_address)) { }
 	ax25Address::ax25Address(const std::string addrstr) { //Parse address from string
 		m_name = addrstr;
 		
-		m_call.resize(ax25_address::ax25_call); //Make space
-		ax25_aton_entry(addrstr.c_str(), m_call.data()); //Put in callsign + SSID
-		
-		m_ndigits = 0; //TODO: What is this for, and when should it be set/what should it be set to?
-		
-		
-		
-		//m_call = addrstr; //TODO: Remove any call suffix/ssid (ie "-1", "-2", etc)
-		//m_ssid = ??; //TODO: Figure out what this needs to be
-		//Yes, yes I do.
-		//Furthermore, I may need to add support for `full_sockaddr_ax25` instead of just `sockaddr_ax25`
-		//As stated elsewhere, I cannot actually develop or test this due to documentation and lack of testing hardware
+		full_sockaddr_ax25 addr;
+		//ax25_aton(const char *cp, struct full_sockaddr_ax25 *fsap);
+		socklen_t len = ax25_aton(addrstr.c_str(), &addr); //Populate
+		if (len == -1) {
+			//TODO: Confirm that errno is set here (likey but not validated)
+			throw sysErr(errno);
+		}
+		ax25Address(addr, len);
 	}
-	ax25Address::ax25Address(const sockaddr_ax25 addr) { //Construct from C struct
+	ax25Address::ax25Address(const full_sockaddr_ax25 addr, const socklen_t len) { //Construct from C struct
 		m_call.resize(ax25_address::ax25_call);
 		memcpy(m_call.data(), &addr.sax25_call, m_call.size()); //Copy call
 		m_ndigis = addr.sax25_ndigits;
-	}
-	ax25Address::operator sockaddr_ax25() const { //Cast to C struct
-		sockaddr_ax25 addr;
-		addr.sax25_family = AF_AX25;
 		
-		//TODO: What should I do about callsign here?
-		//int error = ax25_aton_entry(m_name, (char*)&addr.sax25_call);
-		//if (error != 0) {
-		//	throw std::runtime_error("Could not get ax25 address from " + addrstr);
-		//}
-		addr.sax25_ndigis = m_ndigits;
+		
+		//Get values out of `addr` and store
+		m_digis = addr.fsa_ax25.sax25_ndigis; //I assume this is the number of elements in fsa_digipeater (in basic sockaddr_ax25 for reading it as 0)
+		m_call = std::string(addr.fsa_ax25.sax25_call.ax25_call, 6); //Just callsign (6 characters)
+		m_ssid = addr.fsa_ax25.sax25_call.ax25_call[6]; //Last character is ssid (shifted ascii whatever that means)
 	}
-	ax25Address::socklen_t size() const { //Length associated with above (sockaddr_ax25 cast)
-		return sizeof(sockaddr_ax25);
+	ax25Address::operator full_sockaddr_ax25() const { //Cast to C struct
+		full_sockaddr_ax25 addr;
+		addr.fsa_ax25.sax25_family = AF_AX25;
+		memcpy(addr.fsa_ax25.sax25_call.ax25_call, m_call.data(), m_call.size()); //Copy in callsign
+		addr.fsa_ax25.sax25_call.ax25_call[6] = m_ssid; //Set ssid
+		addr.fsa_ax25.sax25_ndigis = m_digis;
+		
+		return addr;
+	}
+	ax25Address::socklen_t size() const { //Length associated with above (full_sockaddr_ax25 cast)
+		return sizeof(sockaddr_ax25 + sizeof(ax25_address) * 0); //NOTE: the sizeof * 0 is for the fsa_digipeater count, which is currently not tracked
 	}
 	ax25Address::operator sockaddr_storage() const {
-		sockaddr_ax25 addrl = (sockaddr_ax25)(*this); //Cast to correct struct
+		full_sockaddr_ax25 addrl = (full_sockaddr_ax25)(*this); //Cast to correct struct
 		socklen_t addrll = this->size(); //Cast to get length of correct struct
 		sockaddr_storage addrs;
 		memcpy(&addrs, &addrl, addrll);
 		return addrs;
 	}
-	std::string ax25Address::call() const {
+	std::string ax25Address::callsign() const {
 		return m_call;
 	}
 	char ax25Address::ssid() const {
-		return m_ssid;
+		return m_ssid; //TODO: Unshift this somehow
 	}
 	std::string ax25Address::name() const {
 		return m_name;
