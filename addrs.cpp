@@ -9,11 +9,11 @@ extern "C" {
 	#include <arpa/inet.h> //inet -> string
 	
 	#if defined __has_include
-		#if __has_include (<linux/ax25.h>)
-			#include <linux/ax25.h> //Many systems don't have these header, and neither do I so I can't even test/develop for it, but I'd like to
+		#if __has_include (<netax25/axlib.h>)
+			//#include <linux/ax25.h> //Many systems don't have these header, and neither do I so I can't even test/develop for it, but I'd like to
 			//Update 12/27/2021: I am currently re-compiling with ax25 support on my Linux machine, so lets set some things up with guesswork meanwhile
-			#include <netax25/ax25.h>
-			#include <netax25/axlib.h>
+			#include <netax25/ax25.h> //A redundent header of above?
+			#include <netax25/axlib.h> //ax25 manipulations, such as ax25_aton
 			#include <netax25/axconfig.h>
 			
 			#define has_ax25
