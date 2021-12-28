@@ -159,9 +159,9 @@ namespace sks {
 	#ifdef has_ax25
 	class ax25Address : public addressBase {
 	protected:
-		std::string m_call; //Callsign KI7SKS or similar
-		char m_ssid;
-		int m_ndigis; //I THINK this is number of digipeaters the address uses/goes through to be reached
+		std::array<uint8_t, 7> m_call;
+		std::vector<std::array<uint8_t, 7>> m_digis; //digipeaters (if any)
+
 		std::string m_name;
 	public:
 		ax25Address(const std::string addrstr); //Parse address from string
@@ -171,7 +171,7 @@ namespace sks {
 		operator sockaddr_storage() const;
 		
 		std::string callsign() const;
-		char ssid() const;
+		uint8_t ssid() const;
 		std::string name() const;
 	};
 	#endif

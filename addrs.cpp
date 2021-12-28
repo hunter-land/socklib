@@ -407,8 +407,6 @@ namespace sks {
 	//ax25Address (Not supported, hopefully in the future)
 	#ifdef has_ax25
 	ax25Address::ax25Address(const std::string addrstr) { //Parse address from string
-		m_name = addrstr;
-		
 		full_sockaddr_ax25 addr;
 		//ax25_aton(const char *cp, struct full_sockaddr_ax25 *fsap);
 		socklen_t len = ax25_aton(addrstr.c_str(), &addr); //Populate
@@ -420,21 +418,31 @@ namespace sks {
 	}
 	ax25Address::ax25Address(const full_sockaddr_ax25 addr, const socklen_t len) { //Construct from C struct
 		//Get values out of `addr` and store
-		m_ndigis = addr.fsa_ax25.sax25_ndigis; //I assume this is the number of elements in fsa_digipeater (in basic sockaddr_ax25 for reading it as 0)
-		m_call = std::string(addr.fsa_ax25.sax25_call.ax25_call, 6); //Just callsign (6 characters)
-		m_ssid = addr.fsa_ax25.sax25_call.ax25_call[6]; //Last character is ssid (shifted ascii whatever that means)
+		memcpy(m_call.data(), addr.fsa_ax25.sax25_call.ax25_call, m_call.size()); //Just callsign (shifted left once, 6 characters) and ssid
+		int ndigis = addr.fsa_ax25.sax25_ndigis; //I assume this is the number of elements in fsa_digipeater (in basic sockaddr_ax25 for reading it as 0)
+		m_digis.resize(ndigis);
+		for(size_t i = 0; i < ndigis; i++) {
+			std::array<uint8_t, 7> digi;
+			memcpy(digi.data(), addr.fsa_digipeater[i].ax25_call, digi.size());
+			m_digis[i] = digi;
+		}
+
+		//Set name
+		//const char* str = ax25_ntoa((&addr);
 	}
 	ax25Address::operator full_sockaddr_ax25() const { //Cast to C struct
 		full_sockaddr_ax25 addr;
 		addr.fsa_ax25.sax25_family = AF_AX25;
-		memcpy(addr.fsa_ax25.sax25_call.ax25_call, m_call.data(), m_call.size()); //Copy in callsign
-		addr.fsa_ax25.sax25_call.ax25_call[6] = m_ssid; //Set ssid
-		addr.fsa_ax25.sax25_ndigis = m_ndigis;
-		
+		memcpy(addr.fsa_ax25.sax25_call.ax25_call, m_call.data(), m_call.size()); //Copy address callsign
+		addr.fsa_ax25.sax25_ndigis = m_digis.size(); //Set ndigis
+		for (size_t i = 0; i < m_digis.size(); i++) { //Populate digis (if any)
+			memcpy(addr.fsa_digipeater[i].ax25_call, m_digis[i].data(), m_digis[i].size());
+		}
+
 		return addr;
 	}
 	socklen_t ax25Address::size() const { //Length associated with above (full_sockaddr_ax25 cast)
-		return sizeof(sockaddr_ax25) + sizeof(ax25_address) * 0; //NOTE: the sizeof * 0 is for the fsa_digipeater count, which is currently not tracked
+		return sizeof(sockaddr_ax25) + sizeof(ax25_address) * m_digis.size(); //Every digipeater entry is one ax25_address in size
 	}
 	ax25Address::operator sockaddr_storage() const {
 		full_sockaddr_ax25 addrl = (full_sockaddr_ax25)(*this); //Cast to correct struct
@@ -444,10 +452,16 @@ namespace sks {
 		return addrs;
 	}
 	std::string ax25Address::callsign() const {
-		return m_call;
+		//callsign is shifted left once, correct and convert it
+		std::string call(m_call.begin(), m_call.end() - 1); //Don't include SSID
+		for (char& c : call) {
+			c = c >> 1; //Shift right to correct
+		}
+		return call;
 	}
-	char ax25Address::ssid() const {
-		return m_ssid; //TODO: Unshift this somehow
+	uint8_t ax25Address::ssid() const {
+		uint8_t ssid = m_call[6];
+		return ssid; //TODO: Unshift this somehow
 	}
 	std::string ax25Address::name() const {
 		return m_name;
