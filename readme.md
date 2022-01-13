@@ -1,66 +1,59 @@
 # SockLib / SocKetS
 
-![Build Status](https://github.com/hunter-land/socklib/workflows/Build/badge.svg) ![Test Status](https://github.com/hunter-land/socklib/workflows/Test/badge.svg)
-
+![Build Status](https://github.com/hunter-land/socklib/workflows/Build/badge.svg) (Tests WIP)
+<!--![Test Status](https://github.com/hunter-land/socklib/workflows/Test/badge.svg)-->
 
 ## About
-I have often found myself needing to use sockets in C++, but having no easy access to them.
-The typical options are either to use C sockets and change the style of the code to C for that section, or to download a larger-than-it-needs-to-be library and learn new socket semantics just for their library which abstracted away things you need control over.
-SocKetS solves these issues, by wrapping C sockets, making them system agnostic, and keeping it object-oriented but still lower-level, just like the C++ standard libraries.
+I have no idea what to put here, I should have written it down when I thought of it.
 
-<!--The SocKetS library is system agnostic and can easily replace C sockets in your C++ code (C++11 onwards).
-  - System Agnostic (WinSocks are a thing of the past)
-  - Better error handling and returning (No more global errno checking)
-  - Easily replaces C socket calls
-  - Supports C++11 standard onwards-->
+This library brings a modern (C++) interface to sockets, simplifies their use, and doesn't remove any functionality.
 
-Many function names and purpose are kept obvious and similar to most socket implementations. (e.g.: `bind()`, `sendto()`)
-
+### Features
+- Addresses can be constructed from formatted strings alone, no explicit `AF_*` argument required (in most cases[⁽¹⁾](#notes)).
+- Errors are thrown, not returned.
+- Sockets are closed properly when deconstructed.
+- Send functions block until all data is sent.
+- Operating System agnostic! (Windows and Linux explicitly maintained)
+- Supports limited casting/constructing to/from C structures
 
 ## Setup
-This is an example of setup and options involved showing how to download, build, and install this library on your system.
+This is an example of setup and setup options showing how to download, build, and install this library on your system of choice.
 
 ### Prerequisites
-This library is built using `cmake` and assumes you have it installed. If you do not, you can download it from:
-- Your system's package manager (such as `apt`)
-- [The official CMake website](https://cmake.org/)
+This library is built using `cmake` and at least one of [their supported generators](https://cmake.org/cmake/help/latest/manual/cmake-generators.7.html#cmake-generators). CMake can be downloaded via a package manager (i.e. `# apt install cmake` or `# pacman -S cmake`), or directly from [the CMake download page](https://cmake.org/download/).
 
 ### Installation
-CMake is used to produce build files and can be from root directory with
 
 1. Download the source code
 	```bash
-	git clone https://github.com/hunter-land/socklib.git
+git clone https://github.com/hunter-land/socklib.git
 	```
 
-2. Run CMake
-	`CMAKE_BUILD_TYPE` can be set to `Release` (default) or `Debug` with `-DCMAKE_BUILD_TYPE=<value>`
-    Shared vs Static can selected with `-DBUILD_SHARED_LIBS=<value>` with `ON` for shared and `OFF` for static
+2. Generate project files with CMake
 	```bash
-	#This calls cmake, which will place system-specific build files in the build directory (./build)
-	cmake -S . -B ./build
+cmake -S . -B ./build
 	```
+Additional optionaly arguments include:
+	- `CMAKE_BUILD_TYPE` which can be set to `Release` (default) or `Debug` with the syntax `-DCMAKE_BUILD_TYPE=value`.
+	- `-DBUILD_SHARED_LIBS` can be set to `ON` to shared, or `OFF` for static using the above syntax.
 
-3. Build the generated project (This step varies based on your system and configuration, but the rule of thumb for each system is given)
+3. Build the generated project (This step varies based on your system and person configuration, below are examples)
 	#### Linux
+	Using `make` in a terminal
 	```bash
 	cd ./build    #cd into whatever directory you had cmake put the files
 	make install    #Build and install the library on the system
 	```
 	#### Windows
-	Navigate to the build folder and open the Visual Studio solution (you may need to open it as an administrator).
-	In Visual Studio, you can either build all targets or right click the `install` target and select `build`
+	Navigate to the build folder and open the Visual Studio solution (you may need to open it as an administrator to install it).
+	In Visual Studio, right click the `install` target and select `build` to build and install the library.
 
-4. Update your linker so it sees the newly installed library. 
-	```bash
-	ldconfig        #creates the necessary links and cache
-	```
-
+4. You may need to update your linker so it sees the newly installed library (`ldconfig` on Linux).
 
 ## Usage
 Specific usage details are given in the documentation
 ### Windows considerations
-Windows requires the program to initialize their sockets, so you must include intialization in your code before any calls to the library. An example code block is provided below.
+**Windows requires programs to initialize the WinSock API before using sockets**, so you must include intialization in your code before any calls to the library. Example initialization code is provided below. There is no such step for Linux systems.
 ```cpp
 // Initialize Winsock
 WSADATA wsaData;
@@ -71,44 +64,44 @@ if (iResult != 0) {
 }
 ```
 ### Basic, single-connection server
-Wait for a client to connect on a given port, send a message, and wait for a single reply before closing the connection.
+This example program will wait for a client to connect, send a message to the client, receive a message from the client, and close the connection.
 ```cpp
-#include <socks.hpp>
+#include <socks/socks.hpp> //Include this socket library
 #include <iostream>
 #include <vector>
 #include <cstdint>
 #include <string>
 
 int main() {
-	//Set up listener socket
-	sks::socket_base listener(sks::ipv4, sks::tcp); //Create a TCP socket for ipv4 addresses to conenct to
-	sks::serror err = listener.bind(457); //Listen on port 457
-	err = listener.listen();
+	//Set up a socket for listening
+	sks::socket listener(sks::IPv4, sks::stream); //Create a stream socket in the IPv4 domain (TCP)
+	listener.bind(sks::address("127.0.0.1:4570")); //Bind to localhost on port 4570
+	listener.listen(); //Begin listening for client
+	std::cout << "Server is listening on " << listener.localAddress().name() << std::endl;
 
 	//Wait for a client to connect
-	sks::socket_base client = listener.accept();
+	sks::socket client = listener.accept(); //Blocks until a client connects
+	std::cout << "Client connected from " << client.connectedAddress().name() << std::endl;
 
 	//Send a message to the client
-	std::string message = "Hello client!"; //Message to be sent is this ascii string
+	std::string message = "You have reached the server."; //Message to be sent is this ASCII string
 	std::vector<uint8_t> messageData(message.begin(), message.end()); //Convert string into vector of bytes
-	err = client.sendto(messageData); //Send it
+	client.send(messageData); //Send the message to the client
 
-	//Wait to hear something back, store it in the recvData vector
-	std::vector<uint8_t> recvData;
-	err = client.recvfrom(recvData);
-	//Interpret message as a string
-	std::string recvMessage(recvData.begin(), recvData.end());
+	//Receive a message from the client
+	std::vector<uint8_t> clientMessageData = client.receive(); //Get the message as a vector of bytes
+	std::string clientMessage(clientMessageData.begin(), clientMessageData.end()); //We know the message is a string so we create a string out of it
+	std::cout << "Client said: " << clientMessage << std::endl; //Display the string
 
-	std::cout << "Client says " << recvMessage << std::endl;
-
-	//Sockets are closed gracefully when deconstructed, so we don't need to manually close them here
+	//Socket is deconstructed automatically, which gracefully closes the connection for us
 	return 0;
 }
 ```
+
 ### Basic client
-Connect to an ipv4 address and port, receive a message, reply to it, and close the connection.
+This example client program will connect to a server, receive a message from the server, send a message to the server, and close the connection.
 ```cpp
-#include <socks.hpp>
+#include <socks/socks.hpp> //Include this socket library
 #include <iostream>
 #include <vector>
 #include <cstdint>
@@ -116,30 +109,32 @@ Connect to an ipv4 address and port, receive a message, reply to it, and close t
 
 int main() {
 	//Set up socket
-	sks::socket_base socket(sks::ipv4, sks::tcp); //Create a TCP socket to connect to an ipv4 address
-	sks::sockaddress remoteAddress("127.0.0.1", 457); //We will be connecting to the localhost on port 457
-	sks::serror err = socket.connect(remoteAddress);
+	sks::socket server(sks::IPv4, sks::stream); //Create a stream socket in the IPv4 domain (TCP)
+	sks::address serverAddress("127.0.0.1:4570"); //Address of the server we will connect to
+	server.connect(serverAddress); //Establish connection
+	std::cout << "Connected to host " << server.connectedAddress().name() << std::endl;
 
-    //Wait for the server to start the conversation
-	std::vector<uint8_t> recvData;
-	err = socket.recvfrom(recvData);
+	//Receive a message from the server
+	std::vector<uint8_t> serverMessageData = server.receive(); //Get the message as a vector of bytes
+	std::string serverMessage(serverMessageData.begin(), serverMessageData.end()); //We know the message is a string so we create a string out of it
+	std::cout << "Server said: " << serverMessage << std::endl; //Display the string
 
-	//Interpret message as a string
-	std::string recvMessage(recvData.begin(), recvData.end());
-	std::cout << "Server says " << recvMessage << std::endl;
-
-	//Reply to the server
-	std::string message = "Hey server!"; //Message to be sent is this ascii string
+	//Send a message to the server
+	std::string message = "Hey server, just saying hello!"; //Message to be sent is this ASCII string
 	std::vector<uint8_t> messageData(message.begin(), message.end()); //Convert string into vector of bytes
-	err = socket.sendto(messageData); //Send it
+	server.send(messageData); //Send the message to the server
 
-	//Socket is closed gracefully when deconstructed, no code needed here
+	//Socket is deconstructed automatically, which gracefully closes the connection for us
 	return 0;
+}
 ```
 *For more examples and information, please view the full documentation.*
 
+## Notes
+1. Address families/domains which do not have any strict formatting (i.e. `unix`) *do* require a family/domain hint to be passed to an address constructor
 
 ## Contact
-Hunter Land - hunterland4.5.7@gmail.com - [Block#2716](https://discordapp.com/users/201452615890894848)
+Project Creator
+- Hunter Land - hunterland4.5.7@gmail.com - [Block#2716](https://discordapp.com/users/201452615890894848)
 
 Project Link: https://github.com/hunter-land/socklib
