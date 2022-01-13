@@ -9,12 +9,12 @@ extern "C" {
 	#include <arpa/inet.h> //inet -> string
 	
 	#if defined __has_include
-		#if __has_include (<netax25/axlib.h>)
+		/*#if __has_include (<netax25/axlib.h>)
 			#include <netax25/ax25.h> //ax25 support and structs
 			#include <netax25/axlib.h> //ax25 manipulations, such as ax25_aton
 			
 			#define has_ax25
-		#endif
+		#endif*/
 	#endif
 }
 

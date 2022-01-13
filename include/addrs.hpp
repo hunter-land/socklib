@@ -8,10 +8,10 @@ extern "C" {
 	#include <sys/un.h>
 	
 	#if defined __has_include
-		#if __has_include (<netax25/axlib.h>)
+		/*#if __has_include (<netax25/axlib.h>)
 			#include <netax25/ax25.h>
 			#define has_ax25
-		#endif
+		#endif*/
 	#endif
 }
 //This is a bit jank, I know, but it is because of the domain enum's `unix` name
