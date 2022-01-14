@@ -9,20 +9,26 @@ sks::address bindableAddress(sks::domain d) {
 		case sks::IPv4:
 			return sks::address("127.0.0.1:0", d);
 		case sks::IPv6:
-			return sks::address("[::]:0", d);
+			return sks::address("[::1]:0", d);
 		case sks::unix:
 			return sks::address("testing.unix", d);
 	}
 	throw std::runtime_error("No bindable address for domain.");
 }
 
-bool GivenTheSystemSupports(std::ostream& log, sks::domain d) {
-	//TODO: This...
+void GivenTheSystemSupports(std::ostream& log, sks::domain d) {
+	//We know it is supported if we can create a socket in that domain
+	bool supported = false;
+	try {
+		sks::socket sock(d, sks::raw); //Raw because we don't know what types are/aren't supported
+		supported = true;
+	} catch (std::exception& e) {
+		log << "Domain is not supported on this system" << std::endl;
+	}
 	
-	//If supported return true
-	//else throw ignore
-	//throw testing::ignore;
-	return true;
+	if (!supported) {
+		throw testing::ignore;
+	}
 }
 
 sks::socket WhenICreateTheSocket(std::ostream& log, sks::domain d, sks::type t, int protocol) {

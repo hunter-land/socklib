@@ -11,7 +11,7 @@
 sks::address bindableAddress(sks::domain d);
 
 //"Given the system supports (.*)"
-bool GivenTheSystemSupports(std::ostream& log, sks::domain d);
+void GivenTheSystemSupports(std::ostream& log, sks::domain d);
 
 //"When I create the socket"
 sks::socket WhenICreateTheSocket(std::ostream& log, sks::domain d, sks::type t, int protocol = 0);
