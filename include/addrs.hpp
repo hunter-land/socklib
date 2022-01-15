@@ -26,9 +26,9 @@ namespace sks {
 	enum domain {
 		unix = AF_UNIX,
 		IPv4 = AF_INET,
-		IPv6 = AF_INET6
+		IPv6 = AF_INET6,
 		#ifdef has_ax25
-		, ax25 = AF_AX25 //Maybe one day, when I can test it );
+		ax25 = AF_AX25, //Maybe one day, when I can test it );
 		#endif
 	};
 	enum type {
@@ -61,9 +61,11 @@ namespace sks {
 			addressBase* base;
 		} m_addresses;
 	public:
+		address(); //Construct an invalid address (Available for stack allocation before assignment, do not use before assigning a valid address)
 		address(std::string addrstr, domain d = (domain)0);
 		address(sockaddr_storage from, socklen_t len);
-		address(const addressBase& addr);
+		address(const addressBase& addr); //Construct from any specific sub-type OR similar type (address copy-constructor uses this due to casting)
+		~address();
 	
 		operator sockaddr_storage() const;
 		socklen_t size() const;

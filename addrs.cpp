@@ -20,6 +20,11 @@ extern "C" {
 
 namespace sks {
 
+	address::address() {
+		//Allocate "nothing"
+		m_addresses.base = nullptr;
+		m_domain = (sks::domain)0;
+	}
 	address::address(std::string addrstr, domain d) {
 		//If we are not given a specific domain to check, try to parse as: IPv6, IPv4
 		switch (d) {
@@ -84,6 +89,9 @@ namespace sks {
 		}
 	}
 	address::address(const addressBase& addr) : address((sockaddr_storage)addr, addr.size()) {}
+	address::~address() {
+		delete m_addresses.base;
+	}
 	address::operator sockaddr_storage() const {
 		return (sockaddr_storage)*m_addresses.base;
 	}
