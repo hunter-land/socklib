@@ -3,15 +3,48 @@
 #include <ostream>
 #include <mutex>
 #include <thread>
+extern "C" {
+	#include <sys/socket.h>
+}
 
 /**	
  *	This file contains all basic/critical tests for functionality of sockets.
  *	
  */
 
-void SocketsCanBeCreated(std::ostream& log) {
-	GivenTheSystemSupports(log, sks::IPv4);
-	WhenICreateTheSocket(log, sks::IPv4, sks::stream);
+void AddressesMatchCEquivalents(std::ostream& log, sks::domain d) {
+	///Prerequisites to this test (throw results unable to meet requirement)///
+	//Not any yet, since address don't need support on the hardware, just the right headers (which if we got here, we have)
+	
+	///Test variables///
+	std::pair<sks::address*, sks::address*> addr = { nullptr, nullptr };
+	switch (d) {
+		case sks::IPv4:
+			addr.first = new sks::address(sks::IPv4Address("10.0.255.85:255"));
+			break;
+		case sks::IPv6:
+			addr.first = new sks::address(sks::IPv6Address("[a:ff00:aaaa::ff:8d5]:16000"));
+			break;
+		case sks::unix:
+			addr.first = new sks::address(sks::unixAddress("./folder/../socket.unix.address"));
+			break;
+		default:
+			throw std::runtime_error("Unknown domain.");
+	}
+	
+	///The test///
+	//Cast to C address (and length)
+	sockaddr_storage caddr = *addr.first;
+	socklen_t caddrlen = addr.first->size();
+	
+	//Cast it back
+	addr.second = new sks::address(caddr, caddrlen);
+	testing::assertTrue(
+		*addr.first == *addr.second,
+		"Addresses do not match\n"
+		"Expected [ " + addr.first->name() + " ]\n"
+		"Actual   [ " + addr.second->name() + " ]"
+	);
 }
 
 void SocketsCanCommunicate(std::ostream& log, sks::domain d, sks::type t) {
@@ -92,7 +125,7 @@ void SocketsCanCommunicate(std::ostream& log, sks::domain d, sks::type t) {
 	clientThread.join();
 	
 	testing::assertTrue(
-		serverAddress.first == serverAddress.second,
+		*serverAddress.first == *serverAddress.second,
 		"Host's local address differs from client's remote address\n"
 		"Expected [ " + serverAddress.first->name() + " ]\n"
 		"Actual   [ " + serverAddress.second->name() + " ]"

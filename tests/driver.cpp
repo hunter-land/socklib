@@ -16,14 +16,19 @@ struct testInfo {
 
 //All tests (global look-up table)
 const std::vector<testInfo> tests = {
-	{ "Sockets can be created",                { "1", "smoke" }, SocketsCanBeCreated },
+	//{ "Sockets can be created",                { "1", "smoke" }, SocketsCanBeCreated },
+	
 	{ "Sockets can communicate (IPv4 TCP)",    { "2", "smoke" }, std::bind(SocketsCanCommunicate, std::placeholders::_1, sks::IPv4, sks::stream) },
 	{ "Sockets can communicate (IPv4 UDP)",    { "2", "smoke" }, std::bind(SocketsCanCommunicate, std::placeholders::_1, sks::IPv4, sks::dgram) },
 	{ "Sockets can communicate (IPv4 SEQ)",    { "2" },          std::bind(SocketsCanCommunicate, std::placeholders::_1, sks::IPv4, sks::seq) },
 	//{ "Sockets can communicate (IPv6 TCP)",    { "2", "smoke" }, std::bind(SocketsCanCommunicate, std::placeholders::_1, sks::IPv6, sks::stream) },
 	//{ "Sockets can communicate (IPv6 UDP)",    { "2", "smoke" }, std::bind(SocketsCanCommunicate, std::placeholders::_1, sks::IPv6, sks::dgram) },
 	//{ "Sockets can communicate (IPv6 SEQ)",    { "2" },          std::bind(SocketsCanCommunicate, std::placeholders::_1, sks::IPv6, sks::seq) },
-	//{ "Sockets can communicate (unix stream)", { "2", "smoke" }, std::bind(SocketsCanCommunicate, std::placeholders::_1, sks::unix, sks::stream) },
+	{ "Sockets can communicate (unix stream)", { "2", "smoke" }, std::bind(SocketsCanCommunicate, std::placeholders::_1, sks::unix, sks::stream) },
+	
+	{ "Addresses cast correctly (IPv4)", { "3", "smoke" }, std::bind(AddressesMatchCEquivalents, std::placeholders::_1, sks::IPv4) },
+	{ "Addresses cast correctly (IPv6)", { "3", "smoke" }, std::bind(AddressesMatchCEquivalents, std::placeholders::_1, sks::IPv6) },
+	{ "Addresses cast correctly (unix)", { "3", "smoke" }, std::bind(AddressesMatchCEquivalents, std::placeholders::_1, sks::unix) },
 };
 
 //Execute the test (return 0 for pass)

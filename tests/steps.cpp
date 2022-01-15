@@ -18,16 +18,28 @@ sks::address bindableAddress(sks::domain d) {
 
 void GivenTheSystemSupports(std::ostream& log, sks::domain d) {
 	//We know it is supported if we can create a socket in that domain
-	bool supported = false;
-	try {
-		sks::socket sock(d, sks::raw); //Raw because we don't know what types are/aren't supported
-		supported = true;
-	} catch (std::exception& e) {
-		log << "Domain is not supported on this system" << std::endl;
+	sks::type type;
+	switch (d) {
+		case sks::IPv4:
+		case sks::IPv6:
+		case sks::unix:
+			type = sks::stream;
+			break;
+		//case sks::ax25:
+		//	type = sks::seq;
+		//	break;
 	}
 	
-	if (!supported) {
-		throw testing::ignore;
+	return GivenTheSystemSupports(log, d, type);
+}
+void GivenTheSystemSupports(std::ostream& log, sks::domain d, sks::type t) {
+	try {
+		sks::socket sock(d, t, 0);
+	} catch (std::system_error& se) {
+		if (se.code() == std::make_error_code(std::errc::address_family_not_supported)) {
+			log << "Domain is not supported on this system" << std::endl;
+			throw testing::ignore;
+		}
 	}
 }
 
