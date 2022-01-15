@@ -116,6 +116,27 @@ namespace sks {
 		return *m_addresses.ax25;
 	}
 	#endif
+	bool address::operator==(const address& r) const {
+		if (m_domain == r.m_domain) {
+			switch (m_domain) {
+				case IPv4:
+					return *m_addresses.IPv4 == *r.m_addresses.IPv4;
+				case IPv6:
+					return *m_addresses.IPv6 == *r.m_addresses.IPv6;
+				case unix:
+					return *m_addresses.unix == *r.m_addresses.unix;
+				#ifdef has_ax25
+				case ax25:
+					return *m_addresses.ax25 == *r.m_addresses.ax25;
+				#endif
+			}
+		}
+		//Different domains, no match
+		return false;
+	}
+	bool address::operator!=(const address& r) const {
+		return !(*this == r);
+	}
 	domain address::addressDomain() const {
 		return m_domain;
 	}
@@ -219,6 +240,12 @@ namespace sks {
 		memcpy(&addrs, &addrl, addrll);
 		return addrs;
 	}
+	bool IPv4Address::operator==(const IPv4Address& r) const {
+		return m_addr == r.m_addr && m_port == r.m_port;
+	}
+	bool IPv4Address::operator!=(const IPv4Address& r) const {
+		return !(*this == r);
+	}
 	std::array<uint8_t, 4> IPv4Address::addr() const {
 		return m_addr;
 	}
@@ -227,6 +254,12 @@ namespace sks {
 	}
 	std::string IPv4Address::name() const {
 		return m_name;
+	}
+	
+	void swapEndian(uint16_t* first, size_t n) {
+		for (size_t i = 0; i < n; i++) {
+			first[i] = ntohs(first[i]);
+		}
 	}
 	
 	IPv6Address::IPv6Address(uint16_t port) : IPv6Address("[::]:" + std::to_string(port)) {} //Construct an any address
@@ -287,6 +320,7 @@ namespace sks {
 		
 		//Read result
 		memcpy(m_addr.data(), &((sockaddr_in6*)results->ai_addr)->sin6_addr, 16);
+		swapEndian(m_addr.data(), m_addr.size());
 		if (m_port == 0) {
 			m_port = ntohs(((sockaddr_in6*)results->ai_addr)->sin6_port);
 		}
@@ -296,6 +330,7 @@ namespace sks {
 	}
 	IPv6Address::IPv6Address(const sockaddr_in6 addr) { //Construct from C struct
 		memcpy(m_addr.data(), &addr.sin6_addr, 16);
+		swapEndian(m_addr.data(), m_addr.size());
 		m_port = ntohs(addr.sin6_port);
 		//Set m_name accordingly
 		char str[64]; //64 should cover everything for IPv6
@@ -309,7 +344,9 @@ namespace sks {
 		sockaddr_in6 addr;
 		addr.sin6_family = AF_INET6;
 		memcpy(&addr.sin6_addr, m_addr.data(), 16);
+		swapEndian((uint16_t*)&addr.sin6_addr, 8);
 		addr.sin6_port = htons(m_port);
+		sin6_scope_id; //uint32_t
 		return addr;
 	}
 	socklen_t IPv6Address::size() const {
@@ -321,6 +358,12 @@ namespace sks {
 		sockaddr_storage addrs;
 		memcpy(&addrs, &addrl, addrll);
 		return addrs;
+	}
+	bool IPv6Address::operator==(const IPv6Address& r) const {
+		return m_addr == r.m_addr && m_port == r.m_port;
+	}
+	bool IPv6Address::operator!=(const IPv6Address& r) const {
+		return !(*this == r);
 	}
 	std::array<uint16_t, 8> IPv6Address::addr() const {
 		return m_addr;
@@ -345,7 +388,7 @@ namespace sks {
 		//pathnames only (up to sizeof(sockaddr_un.sun_pathlen))
 		size_t max = sizeof(sockaddr_un::sun_path);
 		if (addrstr.size() + 1 > max) {
-			throw std::runtime_error("pathname too long for unix address");
+			throw std::runtime_error("Pathname too long for unix address");
 		}
 		m_addr = std::vector<char>(addrstr.begin(), addrstr.end());
 	}
@@ -389,6 +432,12 @@ namespace sks {
 		sockaddr_storage addrs;
 		memcpy(&addrs, &addrl, addrll);
 		return addrs;
+	}
+	bool unixAddress::operator==(const unixAddress& r) const {
+		return m_addr == r.m_addr;
+	}
+	bool unixAddress::operator!=(const unixAddress& r) const {
+		return m_addr != r.m_addr;
 	}
 	std::string unixAddress::name() const {
 		if (named()) {
@@ -450,6 +499,12 @@ namespace sks {
 		sockaddr_storage addrs;
 		memcpy(&addrs, &addrl, addrll);
 		return addrs;
+	}
+	bool ax25Address::operator==(const ax25Address& r) const {
+		//TODO: This function
+	}
+	bool ax25Address::operator!=(const ax25Address& r) const {
+		//TODO: This function
 	}
 	std::string ax25Address::callsign() const {
 		//callsign is shifted left once, correct and convert it

@@ -74,6 +74,9 @@ namespace sks {
 		explicit operator ax25Address() const;
 		#endif
 		
+		bool operator==(const address& r) const;
+		bool operator!=(const address& r) const;
+		
 		domain addressDomain() const;
 		std::string name() const;
 	};
@@ -111,6 +114,9 @@ namespace sks {
 		operator sockaddr_in() const; //Cast to C struct
 		socklen_t size() const; //Length associated with above (sockaddr_in cast)
 		operator sockaddr_storage() const;
+		
+		bool operator==(const IPv4Address& r) const;
+		bool operator!=(const IPv4Address& r) const;
 	
 		std::array<uint8_t, 4> addr() const;
 		uint16_t port() const;
@@ -129,6 +135,9 @@ namespace sks {
 		operator sockaddr_in6() const; //Cast to C struct
 		socklen_t size() const; //Length associated with above (sockaddr_in6 cast)
 		operator sockaddr_storage() const;
+		
+		bool operator==(const IPv6Address& r) const;
+		bool operator!=(const IPv6Address& r) const;
 		
 		std::array<uint16_t, 8> addr() const;
 		std::array<uint16_t, 3> sitePrefix() const;
@@ -151,6 +160,9 @@ namespace sks {
 		socklen_t size() const; //Length associated with above (sockaddr_un cast)
 		operator sockaddr_storage() const;
 		
+		bool operator==(const unixAddress& r) const;
+		bool operator!=(const unixAddress& r) const;
+		
 		std::string name() const;
 		bool named() const;
 	};
@@ -169,6 +181,9 @@ namespace sks {
 		operator full_sockaddr_ax25() const; //Cast to C struct
 		socklen_t size() const; //Length associated with above (full_sockaddr_ax25 cast)
 		operator sockaddr_storage() const;
+		
+		bool operator==(const ax25Address& r) const;
+		bool operator!=(const ax25Address& r) const;
 		
 		std::string callsign() const;
 		uint8_t ssid() const;
