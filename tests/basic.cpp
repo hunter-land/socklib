@@ -49,7 +49,7 @@ void AddressesMatchCEquivalents(std::ostream& log, sks::domain d) {
 
 void SocketsCanCommunicate(std::ostream& log, sks::domain d, sks::type t) {
 	///Prerequisites to this test (throw results unable to meet requirement)///
-	GivenTheSystemSupports(log, d);
+	GivenTheSystemSupports(log, d, t);
 	
 	///Test setup/variables///
 	std::mutex logMutex;
@@ -59,7 +59,7 @@ void SocketsCanCommunicate(std::ostream& log, sks::domain d, sks::type t) {
 	
 	///The test///
 	std::thread hostThread([&]{
-		sks::socket listener(sks::IPv4, sks::stream, 0);	
+		sks::socket listener(d, t, 0);	
 		//Bind to localhost (intra-system address) with random port assigned by OS
 		listener.bind(bindableAddress(d));
 		logMutex.lock();
@@ -95,7 +95,7 @@ void SocketsCanCommunicate(std::ostream& log, sks::domain d, sks::type t) {
 	});
 	std::thread clientThread([&]{
 		//Set up socket
-		sks::socket server(sks::IPv4, sks::stream, 0);
+		sks::socket server(d, t, 0);
 		//Wait for host thread to be ready for us
 		while (serverAddress.first == nullptr) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
