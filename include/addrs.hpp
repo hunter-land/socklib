@@ -127,6 +127,8 @@ namespace sks {
 	protected:
 		std::array<uint16_t, 8> m_addr; //128-bit address
 		uint16_t m_port = 0;
+		uint32_t m_flowInfo = 0;
+		uint32_t m_scopeId = 0;
 		std::string m_name;
 	public:
 		IPv6Address(uint16_t port = 0); //Construct an any address
@@ -144,6 +146,8 @@ namespace sks {
 		uint16_t subnetId() const;
 		std::array<uint16_t, 4> interfaceId() const;
 		uint16_t port() const;
+		uint32_t flowInfo() const;
+		uint32_t scopeId() const;
 		std::string name() const;
 	};
 	

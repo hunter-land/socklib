@@ -319,11 +319,14 @@ namespace sks {
 		}
 		
 		//Read result
-		memcpy(m_addr.data(), &((sockaddr_in6*)results->ai_addr)->sin6_addr, 16);
+		sockaddr_in6* result = (sockaddr_in6*)results->ai_addr;
+		memcpy(m_addr.data(), &result->sin6_addr, 16);
 		swapEndian(m_addr.data(), m_addr.size());
 		if (m_port == 0) {
-			m_port = ntohs(((sockaddr_in6*)results->ai_addr)->sin6_port);
+			m_port = ntohs(result->sin6_port);
 		}
+		m_flowInfo = result->sin6_flowinfo;
+		m_scopeId = result->sin6_scope_id;
 		
 		//Delete
 		freeaddrinfo(results);
@@ -332,6 +335,8 @@ namespace sks {
 		memcpy(m_addr.data(), &addr.sin6_addr, 16);
 		swapEndian(m_addr.data(), m_addr.size());
 		m_port = ntohs(addr.sin6_port);
+		m_flowInfo = addr.sin6_flowinfo;
+		m_scopeId = addr.sin6_scope_id;
 		//Set m_name accordingly
 		char str[64]; //64 should cover everything for IPv6
 		const char* r = inet_ntop(IPv6, &addr.sin6_addr, str, 64);
@@ -346,7 +351,8 @@ namespace sks {
 		memcpy(&addr.sin6_addr, m_addr.data(), 16);
 		swapEndian((uint16_t*)&addr.sin6_addr, 8);
 		addr.sin6_port = htons(m_port);
-		sin6_scope_id; //uint32_t
+		addr.sin6_flowinfo = m_flowInfo;
+		addr.sin6_scope_id = m_scopeId;
 		return addr;
 	}
 	socklen_t IPv6Address::size() const {
@@ -379,6 +385,12 @@ namespace sks {
 	}
 	uint16_t IPv6Address::port() const {
 		return m_port;
+	}
+	uint32_t IPv6Address::flowInfo() const {
+		return m_flowInfo;
+	}
+	uint32_t IPv6Address::scopeId() const {
+		return m_scopeId;
 	}
 	std::string IPv6Address::name() const {
 		return m_name;
