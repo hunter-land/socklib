@@ -2,7 +2,10 @@
 #include "testing.hpp"
 #include <socks/socks.hpp>
 #include <socks/addrs.hpp>
+#include "utility.hpp"
 #include <ostream>
+
+
 
 sks::address bindableAddress(sks::domain d) {
 	switch (d) {
@@ -18,6 +21,7 @@ sks::address bindableAddress(sks::domain d) {
 
 void GivenTheSystemSupports(std::ostream& log, sks::domain d) {
 	//We know it is supported if we can create a socket in that domain
+	log << "Checking system for *any* " << d << " support" << std::endl;
 	sks::type type;
 	switch (d) {
 		case sks::IPv4:
@@ -28,31 +32,29 @@ void GivenTheSystemSupports(std::ostream& log, sks::domain d) {
 		//case sks::ax25:
 		//	type = sks::seq;
 		//	break;
+		default:
+			throw std::runtime_error("Unknown domain");
 	}
 	
 	return GivenTheSystemSupports(log, d, type);
 }
 void GivenTheSystemSupports(std::ostream& log, sks::domain d, sks::type t) {
+	log << "Checking system for " << t << " support in the " << d << " domain" << std::endl;
 	try {
-		sks::socket sock(d, t, 0);
+		sks::socket sock(d, t);
+		log << "System supports " << d << " " << t << "s" << std::endl;
 	} catch (std::system_error& se) {
-		if (se.code() == std::make_error_code(std::errc::address_family_not_supported)) {
-			log << "Domain is not supported on this system" << std::endl;
+		if (se.code() == std::make_error_code(std::errc::address_family_not_supported) ||
+		    se.code() == std::make_error_code(std::errc::invalid_argument)) {
+			//log << t << " in the " << d << " is not supported on this system (" << se.what() << ")" << std::endl;
+			log << t << " in the " << d << " is required for this test." << std::endl;
 			throw testing::ignore;
+		} else {
+			log << "Could not check for socket support" << std::endl;
+			throw se;
 		}
-	}
-}
-
-sks::socket WhenICreateTheSocket(std::ostream& log, sks::domain d, sks::type t, int protocol) {
-	//Create and return socket
-	try {
-		
-		sks::socket sock(d, t, 0);
-		return sock;
-		
 	} catch (std::exception& e) {
-		//Step failed, log it and report failure
-		log << "Could not construct a " << t << " socket in " << d << " domain: " << e.what() << std::endl;
-		throw testing::fail;
+		log << "Could not check for socket support (Non-system error" << std::endl;
+		throw e;
 	}
 }
