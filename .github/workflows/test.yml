@@ -20,8 +20,8 @@ jobs:
         cd ../tests
         cmake -S . -B build
         cd build
-        make unit-test
-        ./unit-test
+        make tests
+        ./tests
   test-static:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -39,6 +39,6 @@ jobs:
         cd ../tests
         cmake -S . -B build
         cd build
-        make unit-test
-        ./unit-test
+        make tests
+        ./tests
       
