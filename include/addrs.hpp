@@ -61,11 +61,9 @@ namespace sks {
 			addressBase* base;
 		} m_addresses;
 	public:
-		address(); //Construct an invalid address (Available for stack allocation before assignment, do not use before assigning a valid address)
 		address(std::string addrstr, domain d = (domain)0);
 		address(sockaddr_storage from, socklen_t len);
 		address(const addressBase& addr); //Construct from any specific sub-type OR similar type (address copy-constructor uses this due to casting)
-		~address();
 	
 		operator sockaddr_storage() const;
 		socklen_t size() const;
