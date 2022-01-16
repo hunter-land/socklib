@@ -21,6 +21,7 @@ std::string typeString(sks::type t) {
 }
 std::ostream& operator<<(std::ostream& os, const sks::type t) {
 	os << typeString(t);
+	return os;
 }
 
 std::string domainString(sks::domain d) {
@@ -31,12 +32,17 @@ std::string domainString(sks::domain d) {
 			return "IPv6";
 		case sks::unix:
 			return "unix";
+		#if has_ax25
+			case sks::ax25:
+			return "ax25";
+		#endif
 		default:
 			return "BAD DOMAIN";
 	}
 }
 std::ostream& operator<<(std::ostream& os, const sks::domain d) {
 	os << domainString(d);
+	return os;
 }
 
 //Convert "any"s to "loopback"s where applicable (0.0.0.0 -> 127.0.0.1, etc)

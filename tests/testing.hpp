@@ -7,11 +7,12 @@ namespace testing {
 		pass,
 		fail,
 		ignore,
+		exception,
+		skip,
 		
 		warn,
 		note,
 		
-		exception,
 	};
 	
 	class assertError : public std::runtime_error {
