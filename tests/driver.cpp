@@ -26,13 +26,13 @@ const std::vector<testInfo> tests = {
 	{ "Sockets can communicate (IPv6 SEQ)",    { "2" },          std::bind(SocketsCanCommunicate, std::placeholders::_1, sks::IPv6, sks::seq) },
 	{ "Sockets can communicate (unix stream)", { "2", "smoke" }, std::bind(SocketsCanCommunicate, std::placeholders::_1, sks::unix, sks::stream) },
 	
-	{ "Addresses cast correctly (IPv4)", { "3", "smoke" }, std::bind(AddressesMatchCEquivalents, std::placeholders::_1, sks::IPv4) },
-	{ "Addresses cast correctly (IPv6)", { "3", "smoke" }, std::bind(AddressesMatchCEquivalents, std::placeholders::_1, sks::IPv6) },
-	{ "Addresses cast correctly (unix)", { "3", "smoke" }, std::bind(AddressesMatchCEquivalents, std::placeholders::_1, sks::unix) },
+	{ "Addresses cast correctly (IPv4)",       { "3", "smoke" }, std::bind(AddressesMatchCEquivalents, std::placeholders::_1, sks::IPv4) },
+	{ "Addresses cast correctly (IPv6)",       { "3", "smoke" }, std::bind(AddressesMatchCEquivalents, std::placeholders::_1, sks::IPv6) },
+	{ "Addresses cast correctly (unix)",       { "3", "smoke" }, std::bind(AddressesMatchCEquivalents, std::placeholders::_1, sks::unix) },
 };
 
 //Execute the test (return 0 for pass)
-int doTest(const testInfo& test) {
+testing::tag doTest(const testInfo& test) {
 	testing::tag result = testing::pass;
 	std::ostream* out = &std::cout; //Where to print the final evaluation of test (pass, fail, etc)
 	
@@ -41,34 +41,43 @@ int doTest(const testInfo& test) {
 	fullLogStream << "Starting test [ " << test.name << " ]" << std::endl;
 	try {
 		test.function(fullLogStream);
-	} catch (testing::tag& t) {
+	} catch (const testing::tag& t) {
 		result = t;
 		out = &std::cerr;
 		*out << fullLogStream.str();
-	} catch (std::exception& ex) {
+	} catch (const std::exception& ex) {
 		result = testing::exception;
 		out = &std::cerr;
 		*out << fullLogStream.str();
 		
-		*out << ex.what() << std::endl;
+		*out << "Test threw an exception: " << ex.what() << std::endl;
+	} catch (...) {
+		//Literally a catch-all
+		//We don't know the type thrown, nor anything about it
+		//Shouldn't usually happen, but this is for testing so who knows what will happen, thats OUR job to check!
+		result = testing::exception;
+		out = &std::cerr;
+		*out << fullLogStream.str();
+		*out << "Test threw a type which is not an std::exception." << std::endl;
 	}
 	*out << result << "\t" << test.name << std::endl;
 	
-	return result == testing::pass ? 0 : 1;
+	//return result == testing::pass ? 0 : 1;
+	return result;
 }
 
 int main (int argc, char** argv) {
-	std::set<size_t> testsToRun; //Elements are the index of the test in the lookup table `tests`
+	std::map<size_t, testing::tag> testsToRun; //Keys are the index of the test in the lookup table `tests`, values are their execution result
 	
 	//Build set of tests to run
 	if (argc < 2) {
 		//Run all tests
 		for (size_t i = 0; i < tests.size(); i++) {
-			testsToRun.insert(i);
+			testsToRun[i] = testing::tag::skip;
 		}
 	} else {
 		//Run only certain tests/groups (do regex searching through all tests for each argument)
-		for (size_t argIndex = 1; argIndex < argc; argIndex++) {
+		for (size_t argIndex = 1; argIndex < (size_t)argc; argIndex++) {
 			std::string searchPattern(argv[argIndex]);
 			std::regex searchRegex(searchPattern);
 			
@@ -80,7 +89,7 @@ int main (int argc, char** argv) {
 					//If the tag matches
 					if (std::regex_match(identifier, searchRegex)) {
 						//add the test to list to execute
-						testsToRun.insert(i);
+						testsToRun[i] = testing::tag::skip;
 						break; //Test is already added, we don't need to keep checking it
 					}
 				}
@@ -92,13 +101,17 @@ int main (int argc, char** argv) {
 	//(ha! none today)
 	
 	//Execute tests
-	int failedTests = 0;
-	for (const size_t& testIndex : testsToRun) {
-		failedTests += doTest(tests[testIndex]);
+	std::map<testing::tag, size_t> tagTotals;
+	for (std::pair<const size_t, testing::tag>& testResultPair : testsToRun) {
+		size_t testIndex = testResultPair.first;
+		testing::tag& executionResult = testResultPair.second;
+		
+		executionResult = doTest(tests[testIndex]);
+		tagTotals[executionResult]++;
 	}
 	
 	//Any post test actions
 	//(also none today)
 	
-	return failedTests;
+	return testsToRun.size() - (tagTotals[testing::tag::pass] + tagTotals[testing::tag::ignore]);
 }
