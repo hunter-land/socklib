@@ -45,7 +45,8 @@ void GivenTheSystemSupports(std::ostream& log, sks::domain d, sks::type t) {
 		log << "System supports " << d << " " << t << "s" << std::endl;
 	} catch (std::system_error& se) {
 		if (se.code() == std::make_error_code(std::errc::address_family_not_supported) ||
-		    se.code() == std::make_error_code(std::errc::invalid_argument)) {
+		    se.code() == std::make_error_code(std::errc::invalid_argument) ||
+		    se.code() == std::make_error_code((std::errc)ESOCKTNOSUPPORT)) {
 			//log << t << " in the " << d << " is not supported on this system (" << se.what() << ")" << std::endl;
 			log << t << " in the " << d << " is required for this test." << std::endl;
 			throw testing::ignore;
