@@ -8,11 +8,15 @@ extern "C" {
 		#include <unistd.h> //unlink(...)
 		#define __AS_POSIX__
 	#elif defined _WIN32 //Windows system
-		#include <ws2tcpip.h>
+		#include <ws2tcpip.h> //WinSock 2
+		//#include <afunix.h> //Unix sockets address (They renamed everything WHY)
 		#pragma comment(lib, "Ws2_32.lib")
 
 		#define poll WSAPoll
+		#define ssize_t int
 		#define __AS_WINDOWS__
+	#else
+		#error "Unrecognized system. Library cannot be compiled"
 	#endif
 }
 #include <vector>
@@ -81,7 +85,11 @@ namespace sks {
 			//This makes sure all remaining bytes are sent to network before closing it up
 			//Long story short, no data is lost unless it is lost while traversing the network
 			//Also may send protocol info, such as a FIN for TCP
-			shutdown(m_sockFD, SHUT_RDWR);
+			#ifdef __AS_POSIX__
+				shutdown(m_sockFD, SHUT_RDWR);
+			#else
+				shutdown(m_sockFD, SD_BOTH);
+			#endif
 			//On error, -1 shall be returned and errno set to indicate the error.
 			//For the reasons below, no checking is done on shutdown(...)
 			/*-----------------------------------------------------------------------------------------\
@@ -95,7 +103,11 @@ namespace sks {
 			//Close socket fully
 			//Any bytes not transmitted are gone
 			//I'm not certain, but I think this isn't a formal/clean close either
-			int e = close(m_sockFD);
+			#ifdef __AS_POSIX__
+				int e = close(m_sockFD);
+			#else
+				int e = closesocket(m_sockFD);
+			#endif
 			//On error, -1 is returned, and errno is set appropriately.
 			if (e == -1) {
 				//Error closing socket
@@ -198,7 +210,7 @@ namespace sks {
 		size_t sent = 0;
 		//send may not send all data at once, so we have a loop here
 		while (sent < data.size()) {
-			ssize_t r = ::send(m_sockFD, data.data() + sent, data.size() - sent, 0); //Flags of 0 only for now, might open up later
+			ssize_t r = ::send(m_sockFD, (const char*)data.data() + sent, data.size() - sent, 0); //Flags of 0 only for now, might open up later
 			//On success, these calls return the number of characters sent. On error, -1 is returned, and errno is set appropriately.
 			if (r == -1) {
 				throw sysErr(errno);
@@ -211,7 +223,7 @@ namespace sks {
 		size_t sent = 0;
 		//send may not send all data at once, so we have a loop here
 		while (sent < data.size()) {
-			ssize_t r = ::sendto(m_sockFD, data.data() + sent, data.size() - sent, 0, (sockaddr*)&addr, to.size()); //Flags of 0 only for now, might open up later
+			ssize_t r = ::sendto(m_sockFD, (const char*)data.data() + sent, data.size() - sent, 0, (sockaddr*)&addr, to.size()); //Flags of 0 only for now, might open up later
 			if (r == -1) {
 				throw sysErr(errno);
 			}
@@ -221,7 +233,7 @@ namespace sks {
 	
 	std::vector<uint8_t> socket::receive(size_t bufSize) {
 		std::vector<uint8_t> buffer(bufSize);
-		ssize_t r = recv(m_sockFD, buffer.data(), buffer.size(), 0); //Flags of 0 only for now, might open up later
+		ssize_t r = recv(m_sockFD, (char*)buffer.data(), buffer.size(), 0); //Flags of 0 only for now, might open up later
 		if (r == -1) {
 			throw sysErr(errno);
 		}
@@ -232,7 +244,7 @@ namespace sks {
 		std::vector<uint8_t> buffer(bufSize);
 		sockaddr_storage sa;
 		socklen_t salen = sizeof(sa);
-		ssize_t r = recvfrom(m_sockFD, buffer.data(), buffer.size(), 0, (sockaddr*)&sa, &salen); //Flags of 0 only for now, might open up later
+		ssize_t r = recvfrom(m_sockFD, (char*)buffer.data(), buffer.size(), 0, (sockaddr*)&sa, &salen); //Flags of 0 only for now, might open up later
 		if (r == -1) {
 			throw sysErr(errno);
 		}
@@ -257,7 +269,7 @@ namespace sks {
 	void socket::sendTimeout(std::chrono::microseconds us) {
 		//Set the tx timeout option
 		timeval tv = microsecondsToTimeval(us);
-		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv));
 		if (e == -1) {
 			throw sysErr(errno);
 		}
@@ -265,7 +277,7 @@ namespace sks {
 	std::chrono::microseconds socket::sendTimeout() {
 		timeval tv;
 		socklen_t tvl;
-		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, &tv, &tvl);
+		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, (char*)&tv, &tvl);
 		if (e == -1) {
 			throw sysErr(errno);
 		}
@@ -276,7 +288,7 @@ namespace sks {
 	void socket::receiveTimeout(std::chrono::microseconds us) {
 		//Set the rx timeout option
 		timeval tv = microsecondsToTimeval(us);
-		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
 		if (e == -1) {
 			throw sysErr(errno);
 		}
@@ -284,7 +296,7 @@ namespace sks {
 	std::chrono::microseconds socket::receiveTimeout() {
 		timeval tv;
 		socklen_t tvl;
-		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, &tv, &tvl);
+		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, &tvl);
 		if (e == -1) {
 			throw sysErr(errno);
 		}
