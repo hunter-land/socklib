@@ -1,11 +1,19 @@
 #include "include/socks.hpp"
 #include "include/errors.hpp"
 extern "C" {
-	//#if __has_include(<unistd.h>) //SHOULD be true if POSIX, false otherwise
-	#include <sys/socket.h> //general socket
-	#include <unistd.h> //close(...) and unlink(...)
-	#include <poll.h> //poll(...)
-	#include <unistd.h> //unlink(...)
+	#if __has_include(<unistd.h>) //SHOULD be true if POSIX, false otherwise
+		#include <sys/socket.h> //general socket
+		#include <unistd.h> //close(...) and unlink(...)
+		#include <poll.h> //poll(...)
+		#include <unistd.h> //unlink(...)
+		#define __AS_POSIX__
+	#elif defined _WIN32 //Windows system
+		#include <ws2tcpip.h>
+		#pragma comment(lib, "Ws2_32.lib")
+
+		#define poll WSAPoll
+		#define __AS_WINDOWS__
+	#endif
 }
 #include <vector>
 #include <chrono>

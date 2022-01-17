@@ -3,18 +3,25 @@
 #include <cstring>
 #include <regex>
 extern "C" {
-	#include <sys/socket.h>
-	#include <sys/un.h>
-	#include <netdb.h>
-	#include <arpa/inet.h> //inet -> string
+	#if __has_include(<unistd.h>) //SHOULD be true if POSIX, false otherwise
+		#include <sys/socket.h>
+		#include <sys/un.h>
+		#include <netdb.h>
+		#include <arpa/inet.h> //inet -> string
 	
-	#if defined __has_include
-		/*#if __has_include (<netax25/axlib.h>)
-			#include <netax25/ax25.h> //ax25 support and structs
-			#include <netax25/axlib.h> //ax25 manipulations, such as ax25_aton
+		#if defined __has_include
+			/*#if __has_include (<netax25/axlib.h>)
+				#include <netax25/ax25.h> //ax25 support and structs
+				#include <netax25/axlib.h> //ax25 manipulations, such as ax25_aton
 			
-			#define has_ax25
-		#endif*/
+				#define has_ax25
+			#endif*/
+		#endif
+	#elif defined _WIN32
+		#include <ws2tcpip.h>
+		#include <afunix.h>
+
+		#define sockaddr_un SOCKADDR_UN
 	#endif
 }
 
