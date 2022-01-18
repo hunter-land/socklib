@@ -9,6 +9,9 @@ extern "C" {
 		#define __AS_POSIX__
 	#elif defined _WIN32 //Windows system
 		#include <ws2tcpip.h> //WinSock 2
+		//#include <io.h> //_mktemp
+		//#include <fileapi.h> //to get temp dir
+		//#include <shlwapi.h> //PathCombineA
 		#pragma comment(lib, "Ws2_32.lib")
 
 		#define poll WSAPoll
@@ -348,6 +351,7 @@ namespace sks {
 
 
 
+#ifdef __AS_POSIX__
 	std::pair<socket, socket> createUnixPair(type t, int protocol) {
 		const domain d = unix;
 		//Create two sockets with given params
@@ -359,4 +363,35 @@ namespace sks {
 		//We have two socket file descriptors, wrap into classes then put into return pair
 		return std::pair<socket, socket>{ socket(FDs[0], d, t, protocol), socket(FDs[1], d, t, protocol) };
 	}
+#else
+	std::pair<socket, socket> createUnixPair(type t, int protocol) {
+		//Windows special, windows no fork, windows require workaround for same function
+		//windows may not even need, but windows gets
+		/*char* tempname = _mktemp("unix-XXXXXXXXXXXX"); //12 chars random + ".unix" + '\0'
+		char tmpDir[MAX_PATH];
+		int r = GetTempPathA(MAX_PATH, tmpDir);
+		if (r != 0) {
+			//Issues getting temp path
+		}
+		char tmpFile[MAX_PATH];
+		LPSTR r2 = PathCombineA(tmpFile, tmpDir, tempname);
+		if (r2 != tmpFile) {
+			//Issues combining paths
+		}
+
+		std::string listenerFile = tmpFile;
+		sks::unixAddress listenerAddress(listenerFile);
+
+		//We now have a temp file we can bind a unix socket to
+		socket listener(unix, t, protocol);
+		listener.bind(listenerAddress);
+		u_long nonblock = 1;
+		r = ioctlsocket(listener.m_sockFD, FIONBIO, &nonblock);
+		if (r != 0) {
+			//Couln't set non-blocking
+		}
+		listener.listen(1);*/
+		throw std::runtime_error("createUnixPair is not implemented for windows systems.");
+	}
+#endif
 };
