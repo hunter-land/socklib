@@ -29,6 +29,10 @@ const std::vector<testInfo> tests = {
 	{ "Addresses cast correctly (IPv4)",       { "3", "smoke" }, std::bind(AddressesMatchCEquivalents, std::placeholders::_1, sks::IPv4) },
 	{ "Addresses cast correctly (IPv6)",       { "3", "smoke" }, std::bind(AddressesMatchCEquivalents, std::placeholders::_1, sks::IPv6) },
 	{ "Addresses cast correctly (unix)",       { "3", "smoke" }, std::bind(AddressesMatchCEquivalents, std::placeholders::_1, sks::unix) },
+	
+	{ "Socket pairs can be created (stream)",  { "4" },          std::bind(SocketPairsCanBeCreated, std::placeholders::_1, sks::stream) },
+	{ "Socket pairs can be created (dgram)",   { "4" },          std::bind(SocketPairsCanBeCreated, std::placeholders::_1, sks::dgram) },
+	{ "Socket pairs can be created (seq)",     { "4" },          std::bind(SocketPairsCanBeCreated, std::placeholders::_1, sks::seq) },
 };
 
 //Execute the test (return 0 for pass)
@@ -36,15 +40,31 @@ testing::tag doTest(const testInfo& test) {
 	testing::tag result = testing::pass;
 	std::ostream* out = &std::cout; //Where to print the final evaluation of test (pass, fail, etc)
 	
-	std::ostringstream fullLogStream;
+	std::stringstream fullLogStream;
 	
 	fullLogStream << "Starting test [ " << test.name << " ]" << std::endl;
 	try {
 		test.function(fullLogStream);
 	} catch (const testing::tag& t) {
+		switch (t) {
+			case testing::tag::pass:
+				break; //Convention is the function runs without throwing, but just in case
+			case testing::tag::ignore:
+				//Print to normal output the last line of fullLogStream
+				{
+					std::string line, lastLine;
+					while (std::getline(fullLogStream, line)) {
+						lastLine = line;
+					}
+					*out << lastLine << std::endl;
+				}
+				break;
+			default:
+				out = &std::cerr;
+				*out << fullLogStream.str();
+				break;
+		}
 		result = t;
-		out = &std::cerr;
-		*out << fullLogStream.str();
 	} catch (const std::exception& ex) {
 		result = testing::exception;
 		out = &std::cerr;
@@ -66,7 +86,7 @@ testing::tag doTest(const testInfo& test) {
 	return result;
 }
 
-int main (int argc, char** argv) {
+int main(int argc, char** argv) {
 	std::map<size_t, testing::tag> testsToRun; //Keys are the index of the test in the lookup table `tests`, values are their execution result
 	
 	//Build set of tests to run
@@ -97,10 +117,7 @@ int main (int argc, char** argv) {
 		}
 	}
 	
-	//Any setup required
-	//(ha! none today)
-	
-	//Execute tests
+	//Execute all selected tests
 	std::map<testing::tag, size_t> tagTotals;
 	for (std::pair<const size_t, testing::tag>& testResultPair : testsToRun) {
 		size_t testIndex = testResultPair.first;
@@ -110,8 +127,6 @@ int main (int argc, char** argv) {
 		tagTotals[executionResult]++;
 	}
 	
-	//Any post test actions
-	//(also none today)
-	
+	//Return number of tests which didn't pass or get ignored
 	return testsToRun.size() - (tagTotals[testing::tag::pass] + tagTotals[testing::tag::ignore]);
 }

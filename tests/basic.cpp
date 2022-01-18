@@ -231,3 +231,43 @@ void SocketsCanCommunicate(std::ostream& log, sks::domain d, sks::type t) {
 						 "Expected [ " + clientsMessage.first + " ]\n"
 	                     "Actual   [ " + clientsMessage.second + " ]" );
 }
+
+void SocketPairsCanBeCreated(std::ostream& log, sks::type t) {
+	///Prerequisites to this test (throw results unable to meet requirement)///
+	GivenTheSystemSupports(log, sks::unix, t);
+	
+	///Test setup/variables///
+	std::pair<std::string, std::string> firstMessage = { "Message from first socket to second", "" };
+	std::pair<std::string, std::string> secondMessage = { "Message from second socket to first", "" };
+	
+	///The test///
+	std::pair<sks::socket, sks::socket> sockets = sks::createUnixPair(t);
+	sks::socket& a = sockets.first;
+	sks::socket& b = sockets.second;
+	
+	//a --> b
+	std::vector<uint8_t> messageBytes(firstMessage.first.begin(), firstMessage.first.end());
+	a.send(messageBytes);
+	messageBytes = b.receive();
+	firstMessage.second = std::string(messageBytes.begin(), messageBytes.end());
+	
+	//b --> a
+	messageBytes = std::vector<uint8_t>(secondMessage.first.begin(), secondMessage.first.end());
+	b.send(messageBytes);
+	messageBytes = a.receive();
+	secondMessage.second = std::string(messageBytes.begin(), messageBytes.end());
+	
+	///Final asserts and cleanup///
+	testing::assertTrue(
+		firstMessage.first == firstMessage.second,
+		"Message from a to b does not match\n"
+		"Expected [ " + firstMessage.first + " ]\n"
+		"Actual   [ " + firstMessage.second + " ]"
+	);
+	testing::assertTrue(
+		firstMessage.first == firstMessage.second,
+		"Message from b to a does not match\n"
+		"Expected [ " + secondMessage.first + " ]\n"
+		"Actual   [ " + secondMessage.second + " ]"
+	);
+}
