@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 extern "C" {
-	#if __has_include(<unistd.h>)
+	#if __has_include(<unistd.h>) & __has_include(<sys/socket.h>)
 		#include <sys/socket.h>
 		#include <netinet/in.h>
 		#include <sys/un.h>

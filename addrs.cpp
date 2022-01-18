@@ -3,7 +3,7 @@
 #include <cstring>
 #include <regex>
 extern "C" {
-	#if __has_include(<unistd.h>) //SHOULD be true if POSIX, false otherwise
+	#if __has_include(<unistd.h>) & __has_include(<sys/socket.h>) //SHOULD be true if POSIX, false otherwise
 		#include <sys/socket.h>
 		#include <sys/un.h>
 		#include <netdb.h>
