@@ -1,11 +1,24 @@
 #include "include/socks.hpp"
 #include "include/errors.hpp"
 extern "C" {
-	//#if __has_include(<unistd.h>) //SHOULD be true if POSIX, false otherwise
-	#include <sys/socket.h> //general socket
-	#include <unistd.h> //close(...) and unlink(...)
-	#include <poll.h> //poll(...)
-	#include <unistd.h> //unlink(...)
+	#if __has_include(<unistd.h>) & __has_include(<sys/socket.h>) //SHOULD be true if POSIX, false otherwise
+		#include <sys/socket.h> //general socket
+		#include <unistd.h> //close(...) and unlink(...)
+		#include <poll.h> //poll(...)
+		#include <unistd.h> //unlink(...)
+		#define __AS_POSIX__
+	#elif defined _WIN32 //Windows system
+		#include <ws2tcpip.h> //WinSock 2
+		//#include <io.h> //_mktemp
+		//#include <fileapi.h> //to get temp dir
+		//#include <shlwapi.h> //PathCombineA
+		#pragma comment(lib, "Ws2_32.lib")
+
+		#define poll WSAPoll
+		#define ssize_t int
+		#define errno WSAGetLastError() //Acceptable, but only if reading socket errors, per https://docs.microsoft.com/en-us/windows/win32/winsock/error-codes-errno-h-errno-and-wsagetlasterror-2
+		#define __AS_WINDOWS__
+	#endif
 }
 #include <vector>
 #include <chrono>
@@ -16,8 +29,22 @@ namespace sks {
 		uint16_t minor = 0;
 		uint16_t build = 0;
 	} versionInfo;*/
+
+	static size_t socketsRunning = 0;
 	
 	socket::socket(domain d, type t, int protocol) {
+		if (autoInitialize && socketsRunning == 0) {
+			#ifdef __AS_WINDOWS__
+				// Initialize Winsock
+				WSADATA wsaData;
+				int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData); //Initialize version 2.2
+				if (iResult != 0) {
+					throw sysErr(iResult);
+				}
+				socketsRunning++;
+			#endif
+		}
+
 		m_sockFD = ::socket(d, t, protocol);
 		//On error, -1 is returned, and errno is set appropriately.
 		if (m_sockFD == -1) {
@@ -52,6 +79,7 @@ namespace sks {
 		m_domain = d;
 		m_type = t;
 		m_protocol = protocol;
+		socketsRunning++; //Since we have been given an already-existing socket, we don't initialize here, but we do increment since we are now managing the socket
 	}
 	
 	socket::socket(socket&& s) {
@@ -73,7 +101,11 @@ namespace sks {
 			//This makes sure all remaining bytes are sent to network before closing it up
 			//Long story short, no data is lost unless it is lost while traversing the network
 			//Also may send protocol info, such as a FIN for TCP
-			shutdown(m_sockFD, SHUT_RDWR);
+			#ifdef __AS_POSIX__
+				shutdown(m_sockFD, SHUT_RDWR);
+			#else
+				shutdown(m_sockFD, SD_BOTH);
+			#endif
 			//On error, -1 shall be returned and errno set to indicate the error.
 			//For the reasons below, no checking is done on shutdown(...)
 			/*-----------------------------------------------------------------------------------------\
@@ -87,7 +119,11 @@ namespace sks {
 			//Close socket fully
 			//Any bytes not transmitted are gone
 			//I'm not certain, but I think this isn't a formal/clean close either
-			int e = close(m_sockFD);
+			#ifdef __AS_POSIX__
+				int e = close(m_sockFD);
+			#else
+				int e = closesocket(m_sockFD);
+			#endif
 			//On error, -1 is returned, and errno is set appropriately.
 			if (e == -1) {
 				//Error closing socket
@@ -107,6 +143,13 @@ namespace sks {
 					//We are currently bound to a named unix address, unlink it
 					unlink(localUnix.name().c_str());
 				}
+			}
+
+			socketsRunning--;
+			if (socketsRunning == 0 && autoInitialize) {
+				#ifdef __AS_WINDOWS__
+					WSACleanup();
+				#endif
 			}
 		}
 	}
@@ -190,7 +233,7 @@ namespace sks {
 		size_t sent = 0;
 		//send may not send all data at once, so we have a loop here
 		while (sent < data.size()) {
-			ssize_t r = ::send(m_sockFD, data.data() + sent, data.size() - sent, 0); //Flags of 0 only for now, might open up later
+			ssize_t r = ::send(m_sockFD, (const char*)data.data() + sent, data.size() - sent, 0); //Flags of 0 only for now, might open up later
 			//On success, these calls return the number of characters sent. On error, -1 is returned, and errno is set appropriately.
 			if (r == -1) {
 				throw sysErr(errno);
@@ -203,7 +246,7 @@ namespace sks {
 		size_t sent = 0;
 		//send may not send all data at once, so we have a loop here
 		while (sent < data.size()) {
-			ssize_t r = ::sendto(m_sockFD, data.data() + sent, data.size() - sent, 0, (sockaddr*)&addr, to.size()); //Flags of 0 only for now, might open up later
+			ssize_t r = ::sendto(m_sockFD, (const char*)data.data() + sent, data.size() - sent, 0, (sockaddr*)&addr, to.size()); //Flags of 0 only for now, might open up later
 			if (r == -1) {
 				throw sysErr(errno);
 			}
@@ -213,7 +256,7 @@ namespace sks {
 	
 	std::vector<uint8_t> socket::receive(size_t bufSize) {
 		std::vector<uint8_t> buffer(bufSize);
-		ssize_t r = recv(m_sockFD, buffer.data(), buffer.size(), 0); //Flags of 0 only for now, might open up later
+		ssize_t r = recv(m_sockFD, (char*)buffer.data(), buffer.size(), 0); //Flags of 0 only for now, might open up later
 		if (r == -1) {
 			throw sysErr(errno);
 		}
@@ -224,7 +267,7 @@ namespace sks {
 		std::vector<uint8_t> buffer(bufSize);
 		sockaddr_storage sa;
 		socklen_t salen = sizeof(sa);
-		ssize_t r = recvfrom(m_sockFD, buffer.data(), buffer.size(), 0, (sockaddr*)&sa, &salen); //Flags of 0 only for now, might open up later
+		ssize_t r = recvfrom(m_sockFD, (char*)buffer.data(), buffer.size(), 0, (sockaddr*)&sa, &salen); //Flags of 0 only for now, might open up later
 		if (r == -1) {
 			throw sysErr(errno);
 		}
@@ -249,7 +292,7 @@ namespace sks {
 	void socket::sendTimeout(std::chrono::microseconds us) {
 		//Set the tx timeout option
 		timeval tv = microsecondsToTimeval(us);
-		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv));
 		if (e == -1) {
 			throw sysErr(errno);
 		}
@@ -257,7 +300,7 @@ namespace sks {
 	std::chrono::microseconds socket::sendTimeout() {
 		timeval tv;
 		socklen_t tvl;
-		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, &tv, &tvl);
+		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, (char*)&tv, &tvl);
 		if (e == -1) {
 			throw sysErr(errno);
 		}
@@ -268,7 +311,7 @@ namespace sks {
 	void socket::receiveTimeout(std::chrono::microseconds us) {
 		//Set the rx timeout option
 		timeval tv = microsecondsToTimeval(us);
-		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
 		if (e == -1) {
 			throw sysErr(errno);
 		}
@@ -276,7 +319,7 @@ namespace sks {
 	std::chrono::microseconds socket::receiveTimeout() {
 		timeval tv;
 		socklen_t tvl;
-		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, &tv, &tvl);
+		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, &tvl);
 		if (e == -1) {
 			throw sysErr(errno);
 		}
@@ -329,6 +372,7 @@ namespace sks {
 
 
 
+#ifdef __AS_POSIX__
 	std::pair<socket, socket> createUnixPair(type t, int protocol) {
 		const domain d = unix;
 		//Create two sockets with given params
@@ -340,4 +384,35 @@ namespace sks {
 		//We have two socket file descriptors, wrap into classes then put into return pair
 		return std::pair<socket, socket>{ socket(FDs[0], d, t, protocol), socket(FDs[1], d, t, protocol) };
 	}
+#else
+	std::pair<socket, socket> createUnixPair(type t, int protocol) {
+		//Windows special, windows no fork, windows require workaround for same function
+		//windows may not even need, but windows gets
+		/*char* tempname = _mktemp("unix-XXXXXXXXXXXX"); //12 chars random + ".unix" + '\0'
+		char tmpDir[MAX_PATH];
+		int r = GetTempPathA(MAX_PATH, tmpDir);
+		if (r != 0) {
+			//Issues getting temp path
+		}
+		char tmpFile[MAX_PATH];
+		LPSTR r2 = PathCombineA(tmpFile, tmpDir, tempname);
+		if (r2 != tmpFile) {
+			//Issues combining paths
+		}
+
+		std::string listenerFile = tmpFile;
+		sks::unixAddress listenerAddress(listenerFile);
+
+		//We now have a temp file we can bind a unix socket to
+		socket listener(unix, t, protocol);
+		listener.bind(listenerAddress);
+		u_long nonblock = 1;
+		r = ioctlsocket(listener.m_sockFD, FIONBIO, &nonblock);
+		if (r != 0) {
+			//Couln't set non-blocking
+		}
+		listener.listen(1);*/
+		throw std::runtime_error("createUnixPair is not implemented for windows systems.");
+	}
+#endif
 };

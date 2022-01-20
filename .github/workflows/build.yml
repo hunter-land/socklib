@@ -12,7 +12,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Build shared library
       run: |
-        cmake -S . -B build -DBUILD_SHARED_LIBS=ON
+        cmake -S . -B build -G "Unix Makefiles" -DBUILD_SHARED_LIBS=ON
         cd build
         make
   build-static:
@@ -24,7 +24,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Build static library
       run: |
-        cmake -S . -B build -DBUILD_SHARED_LIBS=OFF
+        cmake -S . -B build -G "Unix Makefiles" -DBUILD_SHARED_LIBS=OFF
         cd build
         make
 

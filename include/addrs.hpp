@@ -3,15 +3,22 @@
 #include <string>
 #include <vector>
 extern "C" {
-	#include <sys/socket.h>
-	#include <netinet/in.h>
-	#include <sys/un.h>
-	
-	#if defined __has_include
+	#if __has_include(<unistd.h>) & __has_include(<sys/socket.h>)
+		#include <sys/socket.h>
+		#include <netinet/in.h>
+		#include <sys/un.h>
 		/*#if __has_include (<netax25/axlib.h>)
 			#include <netax25/ax25.h>
 			#define has_ax25
 		#endif*/
+	#elif defined _WIN32
+		#include <ws2tcpip.h> //WinSock and socklen_t
+		#include <afunix.h> //Unix sockets address (They renamed everything WHY)
+
+		#define sockaddr_un SOCKADDR_UN
+		#define sun_path Path
+		#define sun_family Family
+		#define sa_family_t ADDRESS_FAMILY
 	#endif
 }
 //This is a bit jank, I know, but it is because of the domain enum's `unix` name
@@ -64,7 +71,7 @@ namespace sks {
 		address(std::string addrstr, domain d = (domain)0);
 		address(sockaddr_storage from, socklen_t len);
 		address(const addressBase& addr); //Construct from any specific sub-type OR similar type (address copy-constructor uses this due to casting)
-	
+
 		operator sockaddr_storage() const;
 		socklen_t size() const;
 		explicit operator IPv4Address() const;

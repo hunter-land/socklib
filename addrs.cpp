@@ -3,18 +3,29 @@
 #include <cstring>
 #include <regex>
 extern "C" {
-	#include <sys/socket.h>
-	#include <sys/un.h>
-	#include <netdb.h>
-	#include <arpa/inet.h> //inet -> string
+	#if __has_include(<unistd.h>) & __has_include(<sys/socket.h>) //SHOULD be true if POSIX, false otherwise
+		#include <sys/socket.h>
+		#include <sys/un.h>
+		#include <netdb.h>
+		#include <arpa/inet.h> //inet -> string
 	
-	#if defined __has_include
-		/*#if __has_include (<netax25/axlib.h>)
-			#include <netax25/ax25.h> //ax25 support and structs
-			#include <netax25/axlib.h> //ax25 manipulations, such as ax25_aton
+		#if defined __has_include
+			/*#if __has_include (<netax25/axlib.h>)
+				#include <netax25/ax25.h> //ax25 support and structs
+				#include <netax25/axlib.h> //ax25 manipulations, such as ax25_aton
 			
-			#define has_ax25
-		#endif*/
+				#define has_ax25
+			#endif*/
+		#endif
+	#elif defined _WIN32
+		#include <ws2tcpip.h> //WinSock 2
+		#include <afunix.h> //Unix sockets address (They renamed everything WHY)
+
+		#define sockaddr_un SOCKADDR_UN
+		#define sun_path Path
+		#define sun_family Family
+		#define sa_family_t ADDRESS_FAMILY
+		#define errno WSAGetLastError() //Acceptable if only reading socket errors, per https://docs.microsoft.com/en-us/windows/win32/winsock/error-codes-errno-h-errno-and-wsagetlasterror-2
 	#endif
 }
 
@@ -407,7 +418,7 @@ namespace sks {
 	unixAddress::unixAddress(const sockaddr_un addr, const socklen_t len) { //Construct from C struct
 		if ((size_t)len > offsetof(sockaddr_un, sun_path) + 1 && addr.sun_path[0] != '\0') {
 			//pathname
-			size_t pathlen = len - offsetof(struct sockaddr_un, sun_path) - 1;
+			size_t pathlen = len - offsetof(sockaddr_un, sun_path) - 1;
 			m_addr.resize(pathlen);
 			memcpy(m_addr.data(), addr.sun_path, pathlen);
 		} else if ((size_t)len > sizeof(sa_family_t)) {
@@ -435,7 +446,7 @@ namespace sks {
 			return m_addr.size() + sizeof(sa_family_t);
 		} else {
 			//pathname
-			return offsetof(struct sockaddr_un, sun_path) + m_addr.size() + 1;
+			return offsetof(sockaddr_un, sun_path) + m_addr.size() + 1;
 		}
 	}
 	unixAddress::operator sockaddr_storage() const {

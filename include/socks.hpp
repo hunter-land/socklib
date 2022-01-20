@@ -27,7 +27,11 @@ namespace sks {
 		uint16_t minor;
 		uint16_t build;
 	} versionInfo;*/
-	
+
+	//Initialize the socket library (when applicable) automatically
+	//This option only does something when running on windows
+	static bool autoInitialize = true;
+		
 	/*enum option {
 		debug = SO_DEBUG,
 		broadcast = SO_BROADCAST,
