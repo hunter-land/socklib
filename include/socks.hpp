@@ -22,16 +22,35 @@ extern "C" {
 #include "addrs.hpp" //Addresses and domains
 
 namespace sks {
-	/*extern const struct {
+	struct versionInfo {
 		uint16_t major;
 		uint16_t minor;
 		uint16_t build;
-	} versionInfo;*/
+	};
+	extern versionInfo version;
 
 	//Initialize the socket library (when applicable) automatically
-	//This option only does something when running on windows
+	//This option only does something on
 	static bool autoInitialize = true;
-		
+
+	enum boolOption {
+		debug = SO_DEBUG,
+		broadcast = SO_BROADCAST,
+		reuseAddr = SO_REUSEADDR,
+		keepAlive = SO_KEEPALIVE,
+		OOBInLine = SO_OOBINLINE,
+		dontRoute = SO_DONTROUTE,
+	};
+	enum intOption {
+		sendBufferSize = SO_SNDBUF,
+		receiveBufferSize = SO_RCVBUF,
+	};
+	enum optionLevel {
+		socketLevel = SOL_SOCKET,
+	};
+	//Unique option types
+	//SO_LINGER (linger struct)
+	
 	/*enum option {
 		debug = SO_DEBUG,
 		broadcast = SO_BROADCAST,
@@ -77,8 +96,12 @@ namespace sks {
 		bool writeReady(std::chrono::milliseconds us = std::chrono::milliseconds(0));
 		bool readReady(std::chrono::milliseconds us = std::chrono::milliseconds(0));
 		//set/get option bool
+		void socketOption(boolOption option, bool value, optionLevel level = socketLevel);
+		bool socketOption(boolOption option, optionLevel level = socketLevel);
 		//set/get option int
-		//SO_BROADCAST
+		void socketOption(intOption option, int value, optionLevel level = socketLevel);
+		int socketOption(intOption option, optionLevel level = socketLevel);
+
 		
 		//Important utility functions
 		//bool connected();

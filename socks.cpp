@@ -24,11 +24,7 @@ extern "C" {
 #include <chrono>
 
 namespace sks {
-	/*const struct {
-		uint16_t major = 0;
-		uint16_t minor = 0;
-		uint16_t build = 0;
-	} versionInfo;*/
+	versionInfo version = { 0, 9, 0 };
 
 	static size_t socketsRunning = 0;
 	
@@ -349,6 +345,37 @@ namespace sks {
 			throw sysErr(errno);
 		}
 		return (pfd.revents & POLLIN) == POLLIN;
+	}
+	
+	void socket::socketOption(boolOption option, bool value, optionLevel level) {
+		int e = setsockopt(m_sockFD, level, option, (const char*)&value, sizeof(value));
+		if (e == -1) {
+			throw sysErr(errno);
+		}
+	}
+	bool socket::socketOption(boolOption option, optionLevel level) {
+		bool value;
+		int len;
+		int e = getsockopt(m_sockFD, level, option, (char*)&value, &len);
+		if (e == -1) {
+			throw sysErr(errno);
+		}
+		return value;
+	}
+	void socket::socketOption(intOption option, int value, optionLevel level) {
+		int e = setsockopt(m_sockFD, level, option, (const char*)&value, sizeof(value));
+		if (e == -1) {
+			throw sysErr(errno);
+		}
+	}
+	int socket::socketOption(intOption option, optionLevel level) {
+		int value;
+		int len;
+		int e = getsockopt(m_sockFD, level, option, (char*)&value, &len);
+		if (e == -1) {
+			throw sysErr(errno);
+		}
+		return value;
 	}
 	
 	address socket::connectedAddress() {
