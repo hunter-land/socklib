@@ -355,7 +355,7 @@ namespace sks {
 	}
 	bool socket::socketOption(boolOption option, optionLevel level) {
 		bool value;
-		int len;
+		socklen_t len;
 		int e = getsockopt(m_sockFD, level, option, (char*)&value, &len);
 		if (e == -1) {
 			throw sysErr(errno);
@@ -370,7 +370,7 @@ namespace sks {
 	}
 	int socket::socketOption(intOption option, optionLevel level) {
 		int value;
-		int len;
+		socklen_t len;
 		int e = getsockopt(m_sockFD, level, option, (char*)&value, &len);
 		if (e == -1) {
 			throw sysErr(errno);
