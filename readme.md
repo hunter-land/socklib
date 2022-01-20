@@ -25,14 +25,14 @@ This library is built using `cmake` and at least one of [their supported generat
 ### Installation
 
 1. Download the source code
-	```bash
-git clone https://github.com/hunter-land/socklib.git
-	```
+    ```bash
+    git clone https://github.com/hunter-land/socklib.git
+    ```
 
 2. Generate project files with CMake
-	```bash
-cmake -S . -B ./build
-	```
+    ```bash
+    cmake -S . -B ./build
+    ```
 Additional optionaly arguments include:
 	- `CMAKE_BUILD_TYPE` which can be set to `Release` (default) or `Debug` with the syntax `-DCMAKE_BUILD_TYPE=value`.
 	- `-DBUILD_SHARED_LIBS` can be set to `ON` to shared, or `OFF` for static using the above syntax.
