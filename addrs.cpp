@@ -25,6 +25,7 @@ extern "C" {
 		#define sun_path Path
 		#define sun_family Family
 		#define sa_family_t ADDRESS_FAMILY
+		#define errno WSAGetLastError() //Acceptable if only reading socket errors, per https://docs.microsoft.com/en-us/windows/win32/winsock/error-codes-errno-h-errno-and-wsagetlasterror-2
 	#endif
 }
 

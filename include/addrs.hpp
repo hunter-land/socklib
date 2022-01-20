@@ -12,6 +12,7 @@ extern "C" {
 			#define has_ax25
 		#endif*/
 	#elif defined _WIN32
+		#include <ws2tcpip.h> //WinSock and socklen_t
 		#include <afunix.h> //Unix sockets address (They renamed everything WHY)
 
 		#define sockaddr_un SOCKADDR_UN
@@ -70,7 +71,7 @@ namespace sks {
 		address(std::string addrstr, domain d = (domain)0);
 		address(sockaddr_storage from, socklen_t len);
 		address(const addressBase& addr); //Construct from any specific sub-type OR similar type (address copy-constructor uses this due to casting)
-	
+
 		operator sockaddr_storage() const;
 		socklen_t size() const;
 		explicit operator IPv4Address() const;

@@ -16,9 +16,8 @@ extern "C" {
 
 		#define poll WSAPoll
 		#define ssize_t int
+		#define errno WSAGetLastError() //Acceptable, but only if reading socket errors, per https://docs.microsoft.com/en-us/windows/win32/winsock/error-codes-errno-h-errno-and-wsagetlasterror-2
 		#define __AS_WINDOWS__
-	#else
-		#error "Unrecognized system. Library cannot be compiled"
 	#endif
 }
 #include <vector>
@@ -30,8 +29,22 @@ namespace sks {
 		uint16_t minor = 0;
 		uint16_t build = 0;
 	} versionInfo;*/
+
+	static size_t socketsRunning = 0;
 	
 	socket::socket(domain d, type t, int protocol) {
+		if (autoInitialize && socketsRunning == 0) {
+			#ifdef __AS_WINDOWS__
+				// Initialize Winsock
+				WSADATA wsaData;
+				int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData); //Initialize version 2.2
+				if (iResult != 0) {
+					throw sysErr(iResult);
+				}
+				socketsRunning++;
+			#endif
+		}
+
 		m_sockFD = ::socket(d, t, protocol);
 		//On error, -1 is returned, and errno is set appropriately.
 		if (m_sockFD == -1) {
@@ -66,6 +79,7 @@ namespace sks {
 		m_domain = d;
 		m_type = t;
 		m_protocol = protocol;
+		socketsRunning++; //Since we have been given an already-existing socket, we don't initialize here, but we do increment since we are now managing the socket
 	}
 	
 	socket::socket(socket&& s) {
@@ -129,6 +143,13 @@ namespace sks {
 					//We are currently bound to a named unix address, unlink it
 					unlink(localUnix.name().c_str());
 				}
+			}
+
+			socketsRunning--;
+			if (socketsRunning == 0 && autoInitialize) {
+				#ifdef __AS_WINDOWS__
+					WSACleanup();
+				#endif
 			}
 		}
 	}
