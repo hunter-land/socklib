@@ -17,15 +17,14 @@ extern "C" {
 				#define has_ax25
 			#endif*/
 		#endif
+		#define __AS_POSIX__
 	#elif defined _WIN32
 		#include <ws2tcpip.h> //WinSock 2
-		#include <afunix.h> //Unix sockets address (They renamed everything WHY)
-
-		#define sockaddr_un SOCKADDR_UN
-		#define sun_path Path
-		#define sun_family Family
+		#include <afunix.h> //Unix sockets address
+		
 		#define sa_family_t ADDRESS_FAMILY
 		#define errno WSAGetLastError() //Acceptable if only reading socket errors, per https://docs.microsoft.com/en-us/windows/win32/winsock/error-codes-errno-h-errno-and-wsagetlasterror-2
+		#define __AS_WINDOWS__
 	#endif
 }
 

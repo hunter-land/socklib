@@ -43,7 +43,11 @@ namespace sks {
 
 		m_sockFD = ::socket(d, t, protocol);
 		//On error, -1 is returned, and errno is set appropriately.
-		if (m_sockFD == -1) {
+		#ifdef __AS_POSIX__
+			if (m_sockFD == -1) {
+		#elif defined __AS_WINDOWS__
+			if (m_sockFD == INVALID_SOCKET) {
+		#endif
 			//Error creating socket; check errno for:
 			/*-----------------------------------------------------------------------------------------------------------------------\
 			|     EACCES      | Permission to create a socket of the specified type and/or protocol is denied.                       |

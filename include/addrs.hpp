@@ -12,13 +12,8 @@ extern "C" {
 			#define has_ax25
 		#endif*/
 	#elif defined _WIN32
-		#include <ws2tcpip.h> //WinSock and socklen_t
-		#include <afunix.h> //Unix sockets address (They renamed everything WHY)
-
-		#define sockaddr_un SOCKADDR_UN
-		#define sun_path Path
-		#define sun_family Family
-		#define sa_family_t ADDRESS_FAMILY
+		#include <ws2tcpip.h> //WinSock 2 and socklen_t
+		#include <afunix.h> //Unix sockets address
 	#endif
 }
 //This is a bit jank, I know, but it is because of the domain enum's `unix` name
