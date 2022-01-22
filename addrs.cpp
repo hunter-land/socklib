@@ -20,7 +20,6 @@ extern "C" {
 		#define __AS_POSIX__
 	#elif defined _WIN32
 		#include <ws2tcpip.h> //WinSock 2
-		#include <afunix.h> //Unix sockets address
 		
 		#define sa_family_t ADDRESS_FAMILY
 		#define errno WSAGetLastError() //Acceptable if only reading socket errors, per https://docs.microsoft.com/en-us/windows/win32/winsock/error-codes-errno-h-errno-and-wsagetlasterror-2

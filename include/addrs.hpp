@@ -13,7 +13,11 @@ extern "C" {
 		#endif*/
 	#elif defined _WIN32
 		#include <ws2tcpip.h> //WinSock 2 and socklen_t
-		#include <afunix.h> //Unix sockets address
+		#define UNIX_PATH_MAX 180
+		typedef struct sockaddr_un {
+			ADDRESS_FAMILY sun_family; /* AF_UNIX */
+			char sun_path[UNIX_PATH_MAX]; /*  */
+		} SOCKADDR_UN, *PSOCKADDR_UN;
 	#endif
 }
 //This is a bit jank, I know, but it is because of the domain enum's `unix` name
