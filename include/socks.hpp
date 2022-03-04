@@ -67,6 +67,8 @@ namespace sks {
 		
 		socket(int sockFD, domain d, type t, int protocol);
 		friend std::pair<socket, socket> createUnixPair(type t, int protocol);
+		friend std::vector<std::reference_wrapper<socket>> writeReadySockets(std::vector<std::reference_wrapper<socket>>& sockets, std::chrono::milliseconds timeout);
+		friend std::vector<std::reference_wrapper<socket>> readReadySockets(std::vector<std::reference_wrapper<socket>>& sockets, std::chrono::milliseconds timeout);
 	public:
 		socket(domain d, type t, int protocol = 0);
 		socket(const socket& s) = delete; //socket cannot be construction-copied
@@ -113,5 +115,9 @@ namespace sks {
 	};
 	
 	std::pair<socket, socket> createUnixPair(type t, int protocol = 0);
+
+	//readReady and writeReady for a group of sockets.
+	std::vector<std::reference_wrapper<socket>> writeReadySockets(std::vector<std::reference_wrapper<socket>>& sockets, std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
+	std::vector<std::reference_wrapper<socket>> readReadySockets(std::vector<std::reference_wrapper<socket>>& sockets, std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
 	
 };

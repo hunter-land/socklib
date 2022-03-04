@@ -353,20 +353,8 @@ namespace sks {
 		if (r == -1) {
 			throw sysErr(errno);
 		}
-		if ((pfd.revents & ~POLLIN) != 0) {
-			//An event other than POLLIN was returned (errors)
-			//POLLERR: Error condition; Socket got an error (Such as RST in TCP) OR the device does not support polling
-			//POLLHUP: Hang up; (In the case of TCP, means FIN has been sent and received) Socket connection has hung up proper
-			//POLLNVAL: fd not open, do not call close
+		//POLLHUP and POLLOUT are mutually exclusive; this function will return false if socket disconnects
 
-			switch (pfd.revents) {
-				case POLLERR:
-				case POLLHUP:
-				case POLLNVAL:
-				default:
-					throw std::runtime_error("Error when attempting to poll socket");
-			}
-		}
 		return (pfd.revents & POLLOUT) == POLLOUT;
 	}
 	bool socket::readReady(std::chrono::milliseconds timeout) {
@@ -378,15 +366,7 @@ namespace sks {
 		if (r == -1) {
 			throw sysErr(errno);
 		}
-		if ((pfd.revents & ~POLLIN) != 0) {
-			switch (pfd.revents) {
-				case POLLERR:
-				case POLLHUP:
-				case POLLNVAL:
-				default:
-					throw std::runtime_error("Error when attempting to poll socket");
-			}
-		}
+
 		return (pfd.revents & POLLIN) == POLLIN;
 	}
 	
@@ -485,4 +465,53 @@ namespace sks {
 		throw std::runtime_error("createUnixPair is not implemented for windows systems.");
 	}
 #endif
+
+	std::vector<std::reference_wrapper<socket>> writeReadySockets(std::vector<std::reference_wrapper<socket>>& sockets, std::chrono::milliseconds timeout) {
+		std::vector<pollfd> pollstructs;
+		for (size_t i = 0; i < sockets.size(); i++) {
+			pollfd pfd;
+			pfd.fd = sockets[i].get().m_sockFD;
+			pfd.events = POLLOUT;
+			pfd.revents = 0; //Zero it out since we read later and don't want any issues
+		}
+
+		//Do poll
+		int r = poll(pollstructs.data(), pollstructs.size(), timeout.count());
+		if (r == -1) {
+			throw sysErr(errno);
+		}
+
+		std::vector<std::reference_wrapper<socket>> readySockets;
+		for (size_t i = 0; i < pollstructs.size(); i++) {
+			if ((pollstructs[i].revents & POLLOUT) == POLLOUT) {
+				//Write ready
+				readySockets.push_back(sockets[i]);
+			}
+		}
+		return readySockets;
+	}
+	std::vector<std::reference_wrapper<socket>> readReadySockets(std::vector<std::reference_wrapper<socket>>& sockets, std::chrono::milliseconds timeout) {
+		std::vector<pollfd> pollstructs;
+		for (size_t i = 0; i < sockets.size(); i++) {
+			pollfd pfd;
+			pfd.fd = sockets[i].get().m_sockFD;
+			pfd.events = POLLIN;
+			pfd.revents = 0; //Zero it out since we read later and don't want any issues
+		}
+
+		//Do poll
+		int r = poll(pollstructs.data(), pollstructs.size(), timeout.count());
+		if (r == -1) {
+			throw sysErr(errno);
+		}
+
+		std::vector<std::reference_wrapper<socket>> readySockets;
+		for (size_t i = 0; i < pollstructs.size(); i++) {
+			if ((pollstructs[i].revents & POLLIN) == POLLIN) {
+				//Read ready
+				readySockets.push_back(sockets[i]);
+			}
+		}
+		return readySockets;
+	}
 };
