@@ -2,6 +2,9 @@
 /build/*
 /tests/build/*
 
+### IDE ###
+.vscode/
+
 ### C++ ###
 # Prerequisites
 *.d
