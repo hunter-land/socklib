@@ -353,6 +353,20 @@ namespace sks {
 		if (r == -1) {
 			throw sysErr(errno);
 		}
+		if ((pfd.revents & ~POLLIN) != 0) {
+			//An event other than POLLIN was returned (errors)
+			//POLLERR: Error condition; Socket got an error (Such as RST in TCP) OR the device does not support polling
+			//POLLHUP: Hang up; (In the case of TCP, means FIN has been sent and received) Socket connection has hung up proper
+			//POLLNVAL: fd not open, do not call close
+
+			switch (pfd.revents) {
+				case POLLERR:
+				case POLLHUP:
+				case POLLNVAL:
+				default:
+					throw std::runtime_error("Error when attempting to poll socket");
+			}
+		}
 		return (pfd.revents & POLLOUT) == POLLOUT;
 	}
 	bool socket::readReady(std::chrono::milliseconds timeout) {
@@ -363,6 +377,15 @@ namespace sks {
 		int r = poll(&pfd, 1, timeout.count());
 		if (r == -1) {
 			throw sysErr(errno);
+		}
+		if ((pfd.revents & ~POLLIN) != 0) {
+			switch (pfd.revents) {
+				case POLLERR:
+				case POLLHUP:
+				case POLLNVAL:
+				default:
+					throw std::runtime_error("Error when attempting to poll socket");
+			}
 		}
 		return (pfd.revents & POLLIN) == POLLIN;
 	}

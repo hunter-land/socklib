@@ -97,7 +97,7 @@ namespace sks {
 		void receiveTimeout(std::chrono::microseconds us);
 		std::chrono::microseconds receiveTimeout();
 		bool writeReady(std::chrono::milliseconds us = std::chrono::milliseconds(0));
-		bool readReady(std::chrono::milliseconds us = std::chrono::milliseconds(0));
+		bool readReady(std::chrono::milliseconds us = std::chrono::milliseconds(0)); //NOTE: Returns true if the remote socket is closed; check if receive returns a vector of size 0
 		//set/get option bool
 		void socketOption(boolOption option, bool value, optionLevel level = socketLevel);
 		bool socketOption(boolOption option, optionLevel level = socketLevel);
