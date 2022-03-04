@@ -85,6 +85,8 @@ void SocketsCanCommunicate(std::ostream& log, sks::domain d, sks::type t) {
 				log << "Acting Client connected from " << client.connectedAddress().name() << std::endl;
 				logMutex.unlock();
 
+
+
 				//Receive a message from the client
 				std::vector<uint8_t> clientMessageData = client.receive(); //Get the message as a vector of bytes
 				clientsMessage.second = std::string(clientMessageData.begin(), clientMessageData.end()); //We know the message is a string so we create a string out of it
@@ -116,6 +118,8 @@ void SocketsCanCommunicate(std::ostream& log, sks::domain d, sks::type t) {
 				logMutex.lock();
 				log << "Acting Client " << server.localAddress().name() << " connected to Acting Server " << server.connectedAddress().name() << std::endl;
 				logMutex.unlock();
+
+
 
 				//Send a message to the server
 				std::vector<uint8_t> messageData(clientsMessage.first.begin(), clientsMessage.first.end()); //Convert string into vector of bytes

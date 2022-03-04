@@ -153,6 +153,15 @@ namespace sks {
 			}
 		}
 	}
+
+	socket& socket::operator=(socket&& s) {
+		std::swap(m_validFD, s.m_validFD);
+		std::swap(m_sockFD, s.m_sockFD);
+		std::swap(m_domain, s.m_domain);
+		std::swap(m_type, s.m_type);
+		std::swap(m_protocol, s.m_protocol);
+		return *this;
+	}
 	
 	void socket::bind(const address& address) {
 		//Make sure domain of address matches that of this socket

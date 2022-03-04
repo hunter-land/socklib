@@ -74,7 +74,7 @@ namespace sks {
 		~socket();
 		
 		socket& operator=(const socket& s) = delete; //socket cannot be assignment-copied
-		socket& operator=(socket&& s) = delete; //socket cannot be assignment-moved
+		socket& operator=(socket&& s); //socket can be assignment-moved (provides ability to use std::swap)
 		
 		//Critical setup functions
 		void bind(const address& address);
@@ -110,6 +110,5 @@ namespace sks {
 	};
 	
 	std::pair<socket, socket> createUnixPair(type t, int protocol = 0);
-	//poll (maybe/probably a class)
 	
 };
