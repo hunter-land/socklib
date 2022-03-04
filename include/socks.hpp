@@ -75,7 +75,10 @@ namespace sks {
 		
 		socket& operator=(const socket& s) = delete; //socket cannot be assignment-copied
 		socket& operator=(socket&& s); //socket can be assignment-moved (provides ability to use std::swap)
-		
+
+		bool operator==(const socket& r) const;
+		bool operator!=(const socket& r) const;
+
 		//Critical setup functions
 		void bind(const address& address);
 		void listen(int backlog = 0xFF);

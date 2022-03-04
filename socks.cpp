@@ -162,6 +162,13 @@ namespace sks {
 		std::swap(m_protocol, s.m_protocol);
 		return *this;
 	}
+
+	bool socket::operator==(const socket& r) const {
+		return m_sockFD == r.m_sockFD;
+	}
+	bool socket::operator!=(const socket& r) const {
+		return m_sockFD != r.m_sockFD;
+	}
 	
 	void socket::bind(const address& address) {
 		//Make sure domain of address matches that of this socket
