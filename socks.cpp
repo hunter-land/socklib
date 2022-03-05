@@ -391,8 +391,8 @@ namespace sks {
 	}
 	
 	void socket::socketOption(boolOption option, bool value, optionLevel level) {
-		// Note: Passing the sizeof(bool) as the last parameter causes a throw
-		int e = setsockopt(m_sockFD, level, option, (const char*)&value, sizeof((int)value));
+		int boolConv = value;
+		int e = setsockopt(m_sockFD, level, option, (const char*)&boolConv, sizeof(boolConv));
 		if (e == -1) {
 			throw sysErr(errno);
 		}
