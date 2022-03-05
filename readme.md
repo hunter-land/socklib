@@ -1,17 +1,14 @@
 # SockLib / SocKetS
 
-![Build Status](https://github.com/hunter-land/socklib/workflows/Build/badge.svg) (Tests WIP)
-<!--![Test Status](https://github.com/hunter-land/socklib/workflows/Test/badge.svg)-->
+![Build Status](https://github.com/hunter-land/socklib/workflows/Build/badge.svg) ![Test Status](https://github.com/hunter-land/socklib/workflows/Test/badge.svg)
 
 ## About
-I have no idea what to put here, I should have written it down when I thought of it.
-
-This library brings a modern (C++) interface to sockets, simplifies their use, and doesn't remove any functionality.
+This library brings a modern C++ interface to sockets, simplifies their use, and doesn't remove any functionality.
 
 ### Features
 - Addresses can be constructed from formatted strings alone, no explicit `AF_*` argument required (in most cases[⁽¹⁾](#notes)).
-- Errors are thrown, not returned.
-- Sockets are closed properly when deconstructed.
+- Errors are thrown, never returned.
+- Sockets are closed gracefully when deconstructed.
 - Send functions block until all data is sent.
 - Operating System agnostic! (Windows and Linux explicitly maintained)
 - Supports limited casting/constructing to/from C structures
@@ -50,19 +47,9 @@ Additional optionaly arguments include:
 
 4. You may need to update your linker so it sees the newly installed library (`ldconfig` on Linux).
 
-## Usage
+## Example Usage
 Specific usage details are given in the documentation
-### Windows considerations
-**Windows requires programs to initialize the WinSock API before using sockets**, so you must include intialization in your code before any calls to the library. Example initialization code is provided below. There is no such step for Linux systems.
-```cpp
-// Initialize Winsock
-WSADATA wsaData;
-int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData); //Initialize version 2.2
-if (iResult != 0) {
-	std::cerr << "WSAStartup failed: " << iResult << std::endl;
-	return 1;
-}
-```
+
 ### Basic, single-connection server
 This example program will wait for a client to connect, send a message to the client, receive a message from the client, and close the connection.
 ```cpp
@@ -128,13 +115,13 @@ int main() {
 	return 0;
 }
 ```
-*For more examples and information, please view the full documentation.*
+*More examples can be found in the examples directory.*
 
 ## Notes
 1. Address families/domains which do not have any strict formatting (i.e. `unix`) *do* require a family/domain hint to be passed to an address constructor
 
 ## Contact
 Project Creator
-- Hunter Land - hunterland4.5.7@gmail.com - [Block#2716](https://discordapp.com/users/201452615890894848)
+- Hunter Land - [hunterland4.5.7@gmail.com](mailto:hunterland4.5.7@gmail.com) - [Block#2716](https://discordapp.com/users/201452615890894848)
 
 Project Link: https://github.com/hunter-land/socklib

@@ -27,18 +27,29 @@ namespace sks {
 	versionInfo version = { 0, 9, 0 };
 
 	static size_t socketsRunning = 0;
+	static void initialize() {
+		#ifdef __AS_WINDOWS__
+			// Initialize Winsock
+			WSADATA wsaData;
+			int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData); //Initialize version 2.2
+			if (iResult != 0) {
+				throw sysErr(iResult);
+			}
+		#endif
+	}
+	static void deinitialize() {
+		#ifdef __AS_WINDOWS__
+			//Clean up Winsock
+			WSACleanup();
+		#endif
+	}
 	
 	socket::socket(domain d, type t, int protocol) {
-		if (autoInitialize && socketsRunning == 0) {
-			#ifdef __AS_WINDOWS__
-				// Initialize Winsock
-				WSADATA wsaData;
-				int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData); //Initialize version 2.2
-				if (iResult != 0) {
-					throw sysErr(iResult);
-				}
-				socketsRunning++;
-			#endif
+		if (autoInitialize) {
+			socketsRunning++;
+			if (socketsRunning == 0) {
+				initialize();
+			}
 		}
 
 		m_sockFD = ::socket(d, t, protocol);
@@ -145,11 +156,11 @@ namespace sks {
 				}
 			}
 
-			socketsRunning--;
-			if (socketsRunning == 0 && autoInitialize) {
-				#ifdef __AS_WINDOWS__
-					WSACleanup();
-				#endif
+			if (autoInitialize) {
+				socketsRunning--;
+				if (socketsRunning == 0) {
+					deinitialize();
+				}
 			}
 		}
 	}
