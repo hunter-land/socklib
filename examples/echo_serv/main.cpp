@@ -77,7 +77,7 @@ int main()
                     {
                         std::cout << cIP << " has disconnected" << std::endl;
                         clientList.erase(std::remove(clientList.begin(), clientList.end(), l), clientList.end());
-                        break;
+                        continue;
                     }
 
                     std::cout << cIP << "> " << std::string(bytes.begin(), bytes.end()) << std::endl;
