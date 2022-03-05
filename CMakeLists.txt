@@ -3,9 +3,7 @@ project(socks VERSION 0.9.0 DESCRIPTION "A C++ wrapping of C BSD sockets")
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-set(CMAKE_CXX_FLAGS "")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Os")
+set(CMAKE_CXX_FLAGS_RELEASE "-flto -Os ${CMAKE_CXX_FLAGS_RELEASE}")
 
 set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include") #Local include directory for headers
 include(GNUInstallDirs) #GNUInstallDirs (a default module) is required for this CMake
