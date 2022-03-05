@@ -371,7 +371,8 @@ namespace sks {
 	}
 	
 	void socket::socketOption(boolOption option, bool value, optionLevel level) {
-		int e = setsockopt(m_sockFD, level, option, (const char*)&value, sizeof(value));
+		int boolConv = value;
+		int e = setsockopt(m_sockFD, level, option, (const char*)&boolConv, sizeof(boolConv));
 		if (e == -1) {
 			throw sysErr(errno);
 		}
