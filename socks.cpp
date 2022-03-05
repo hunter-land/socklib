@@ -316,9 +316,9 @@ namespace sks {
 		return std::chrono::microseconds(tv.tv_usec) + std::chrono::seconds(tv.tv_sec);
 	}
 
-	void socket::sendTimeout(std::chrono::microseconds us) {
+	void socket::sendTimeout(std::chrono::microseconds timeout) {
 		//Set the tx timeout option
-		timeval tv = microsecondsToTimeval(us);
+		timeval tv = microsecondsToTimeval(timeout);
 		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv));
 		if (e == -1) {
 			throw sysErr(errno);
@@ -335,9 +335,9 @@ namespace sks {
 		return timevalToMicroseconds(tv);
 	}
 	
-	void socket::receiveTimeout(std::chrono::microseconds us) {
+	void socket::receiveTimeout(std::chrono::microseconds timeout) {
 		//Set the rx timeout option
-		timeval tv = microsecondsToTimeval(us);
+		timeval tv = microsecondsToTimeval(timeout);
 		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
 		if (e == -1) {
 			throw sysErr(errno);
