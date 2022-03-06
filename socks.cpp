@@ -181,7 +181,7 @@ namespace sks {
 		return m_sockFD != r.m_sockFD;
 	}
 	
-	void socket::bind(const address& address) {
+	void socket::bind(const address address) {
 		//Make sure domain of address matches that of this socket
 		if (address.addressDomain() != m_domain) {
 			throw sysErr(EFAULT); //Bad Address, since domain mis-matched between address and this socket
@@ -246,7 +246,7 @@ namespace sks {
 		return peer;
 	}
 	
-	void socket::connect(const address& address) {
+	void socket::connect(const address address) {
 		sockaddr_storage addr = address;
 		int e = ::connect(m_sockFD, (sockaddr*)&addr, address.size());
 		//On error, -1 is returned, and errno is set appropriately.
@@ -268,7 +268,7 @@ namespace sks {
 			sent += r; //We sent r bytes with this send
 		}
 	}
-	void socket::send(std::vector<uint8_t> data, address& to) {
+	void socket::send(std::vector<uint8_t> data, address to) {
 		sockaddr_storage addr = to;
 		size_t sent = 0;
 		//send may not send all data at once, so we have a loop here
