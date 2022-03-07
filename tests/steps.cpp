@@ -18,7 +18,7 @@ sks::address bindableAddress(sks::domain d, uint8_t index) {
 		case sks::unix:
 			{
 				std::string unixAddressPath = "testing." + std::to_string(index) + ".unix";
-				return sks::address("testing.unix", d);
+				return sks::address(unixAddressPath, d);
 			}
 	}
 	throw std::runtime_error("No bindable address for domain.");

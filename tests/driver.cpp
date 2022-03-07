@@ -35,8 +35,60 @@ const std::vector<testInfo> tests = {
 	{ "Socket pairs can be created (dgram)",        { "4" },          std::bind(SocketPairsCanBeCreated, std::placeholders::_1, sks::dgram) },
 	{ "Socket pairs can be created (seq)",          { "4" },          std::bind(SocketPairsCanBeCreated, std::placeholders::_1, sks::seq) },
 
-	{ "readReady() times-out correctly (IPv4 TCP)", { "5" }, std::bind(ReadReadyTimesOutCorrectly, std::placeholders::_1, sks::IPv4, sks::stream) },
+	{ "readReady() times-out correctly (IPv4 TCP)", { "5" },          std::bind(ReadReadyTimesOutCorrectly, std::placeholders::_1, sks::IPv4, sks::stream) },
+	{ "readReady() times-out correctly (IPv4 UDP)", { "5" },          std::bind(ReadReadyTimesOutCorrectly, std::placeholders::_1, sks::IPv4, sks::dgram) },
+	{ "readReady() times-out correctly (IPv4 SEQ)", { "5" },          std::bind(ReadReadyTimesOutCorrectly, std::placeholders::_1, sks::IPv4, sks::seq) },
+	{ "readReady() times-out correctly (IPv6 TCP)", { "5" },          std::bind(ReadReadyTimesOutCorrectly, std::placeholders::_1, sks::IPv6, sks::stream) },
+	{ "readReady() times-out correctly (IPv6 UDP)", { "5" },          std::bind(ReadReadyTimesOutCorrectly, std::placeholders::_1, sks::IPv6, sks::dgram) },
+	{ "readReady() times-out correctly (IPv6 SEQ)", { "5" },          std::bind(ReadReadyTimesOutCorrectly, std::placeholders::_1, sks::IPv6, sks::seq) },
+	{ "readReady() times-out correctly (unix TCP)", { "5" },          std::bind(ReadReadyTimesOutCorrectly, std::placeholders::_1, sks::unix, sks::stream) },
+	{ "readReady() times-out correctly (unix UDP)", { "5" },          std::bind(ReadReadyTimesOutCorrectly, std::placeholders::_1, sks::unix, sks::dgram) },
+	{ "readReady() times-out correctly (unix SEQ)", { "5" },          std::bind(ReadReadyTimesOutCorrectly, std::placeholders::_1, sks::unix, sks::seq) },
 };
+
+void handleTagThrow(std::ostream*& out, std::stringstream& fullLogStream, testing::tag tag, std::string what = "") {
+	switch (tag) {
+		case testing::tag::pass:
+			break; //Convention is the function runs without throwing, but just in case
+		case testing::tag::ignore:
+			//Print to normal output the last line of fullLogStream
+			{
+				std::string line, lastLine;
+				while (std::getline(fullLogStream, line)) {
+					lastLine = line;
+				}
+				*out << lastLine << std::endl;
+			}
+			break;
+		default:
+			out = &std::cerr;
+			*out << fullLogStream.str();
+			if (what != "") {
+				*out  << std::endl;
+				*out << what << std::endl;
+				*out << std::endl;
+			}
+			break;
+	}
+}
+
+#if __cplusplus == 199711L
+unsigned int cppyear = 1997;
+std::string cppstandard = "C++ 1997";
+//2003 is missing
+#elif __cplusplus == 201103L
+unsigned int cppyear = 2011;
+std::string cppstandard = "C++ 2011";
+#elif __cplusplus == 201402L
+unsigned int cppyear = 2014;
+std::string cppstandard = "C++ 2014";
+#elif __cplusplus == 201703L
+unsigned int cppyear = 2017;
+std::string cppstandard = "C++ 2017";
+#elif __cplusplus == 202002L
+unsigned int cppyear = 2020;
+std::string cppstandard = "C++ 2020";
+#endif
 
 //Execute the test (return 0 for pass)
 testing::tag doTest(const testInfo& test) {
@@ -49,25 +101,11 @@ testing::tag doTest(const testInfo& test) {
 	try {
 		test.function(fullLogStream);
 	} catch (const testing::tag& t) {
-		switch (t) {
-			case testing::tag::pass:
-				break; //Convention is the function runs without throwing, but just in case
-			case testing::tag::ignore:
-				//Print to normal output the last line of fullLogStream
-				{
-					std::string line, lastLine;
-					while (std::getline(fullLogStream, line)) {
-						lastLine = line;
-					}
-					*out << lastLine << std::endl;
-				}
-				break;
-			default:
-				out = &std::cerr;
-				*out << fullLogStream.str();
-				break;
-		}
+		handleTagThrow(out, fullLogStream, t);
 		result = t;
+	} catch (const testing::assertError& ae) {
+		handleTagThrow(out, fullLogStream, ae.result(), ae.what());
+		result = ae.result();
 	} catch (const std::exception& ex) {
 		result = testing::exception;
 		out = &std::cerr;
@@ -84,8 +122,7 @@ testing::tag doTest(const testInfo& test) {
 		*out << "Test threw a type which is not an std::exception." << std::endl;
 	}
 	*out << result << "\t" << test.name << std::endl;
-	
-	//return result == testing::pass ? 0 : 1;
+
 	return result;
 }
 
@@ -119,6 +156,9 @@ int main(int argc, char** argv) {
 			}
 		}
 	}
+
+	std::cout << "Using library version " << sks::version.major << "." << sks::version.minor << "." << sks::version.build << std::endl;
+	std::cout << "Compiled with " << cppstandard << " on " << __DATE__ << " at " << __TIME__ << " (machine time)" << std::endl;
 	
 	//Execute all selected tests
 	std::map<testing::tag, size_t> tagTotals;
