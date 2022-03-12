@@ -51,7 +51,7 @@ int main()
                 // Convert to sks::IPv4Address so we can easily pull the IP and Port
                 sks::IPv4Address info = (sks::IPv4Address)lastConnectedClient.connectedAddress();
 
-                // Yes, it'd ugly.
+                // Yes, it's ugly.
                 std::cout << "New client connect. IP is "
                           << info.addr()[0] << "." << info.addr()[1] << "." << info.addr()[2] << "." << info.addr()[3]
                           << ", Port is " << info.port()
