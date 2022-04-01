@@ -167,6 +167,8 @@ namespace sks {
 		 *		\d{1-3}\.\d{1-3}\.\d{1-3}\.\d{1-3}:\d{1-5}
 		 *	http://google.com
 		 *		if "://" exists, split on it { "http" "google.com" }; accepted by getaddrinfo
+		 *	http://google.com:443
+		 *		if "://" and ":" exist, split on both { "http" "google.com" 443 }; getaddrinfo's port is overwritten by 443
 		 */
 		
 		std::string as = addrstr;
@@ -175,11 +177,12 @@ namespace sks {
 			size_t delimIndex = addrstr.find("://");
 			as = addrstr.substr(delimIndex + 3);
 			scheme = addrstr.substr(0, delimIndex);
-		} else if (regex_match(addrstr, std::regex("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d{1,5}")) || regex_match(addrstr, std::regex("localhost:\\d{1,5}"))) {
-			//addr:port format
-			size_t colonIndex = addrstr.find(':');
-			m_port = std::stoul(addrstr.substr(colonIndex + 1));
-			as = addrstr.substr(0, colonIndex);
+		}
+		if (as.find(":") != std::string::npos) {
+			//addr:port format (possibly with scheme)
+			size_t colonIndex = as.find(':');
+			m_port = std::stoul(as.substr(colonIndex + 1));
+			as = as.substr(0, colonIndex);
 		}
 		
 		//Prepare
@@ -282,6 +285,8 @@ namespace sks {
 		 *	[<addr>]:port
 		 *	http://google.com
 		 *		if "://" exists, split on it { "http" "google.com" } accepted by getaddrinfo
+		 *	http://google.com:443
+		 *		if "://" and ":" exist, split on both { "http" "google.com" 443 }; getaddrinfo's port is overwritten by 443
 		 */
 		
 		std::string as = addrstr;
@@ -292,6 +297,12 @@ namespace sks {
 			size_t delimIndex = addrstr.find("://");
 			as = addrstr.substr(delimIndex + 3);
 			scheme = addrstr.substr(0, delimIndex);
+			if (as.find(":") != std::string::npos) {
+				//URL has explict port at the end we should parse
+				size_t colonIndex = as.find(':');
+				m_port = std::stoul(as.substr(colonIndex + 1));
+				as = as.substr(0, colonIndex);
+			}
 		} else if (obIndex < cbIndex && obIndex == 0 && cbIndex != std::string::npos) {
 			as = addrstr.substr(0, cbIndex); //[f:f::f
 			as = as.substr(1);
