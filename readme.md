@@ -30,11 +30,11 @@ This library is built using `cmake` and at least one of [their supported generat
     ```bash
     cmake -S . -B ./build
     ```
-Additional optionaly arguments include:
-	- `CMAKE_BUILD_TYPE` which can be set to `Release` (default) or `Debug` with the syntax `-DCMAKE_BUILD_TYPE=value`.
-	- `-DBUILD_SHARED_LIBS` can be set to `ON` to shared, or `OFF` for static using the above syntax.
+Additional optional arguments include:
+- `CMAKE_BUILD_TYPE` which can be set to `Release` (default) or `Debug` with the syntax `-DCMAKE_BUILD_TYPE=value`.
+- `BUILD_SHARED_LIBS` can be set to `ON` (default) to shared, or `OFF` for static using the same syntax.
 
-3. Build the generated project (This step varies based on your system and person configuration, below are examples)
+3. Build the generated project (This step varies based on your system and person configuration, below are only examples)
 	#### Linux
 	Using `make` in a terminal
 	```bash
@@ -42,10 +42,10 @@ Additional optionaly arguments include:
 	make install    #Build and install the library on the system
 	```
 	#### Windows
-	Navigate to the build folder and open the Visual Studio solution (you may need to open it as an administrator to install it).
+	Navigate to the build folder and open the Visual Studio solution (you may need to open it as an administrator to install the library).
 	In Visual Studio, right click the `install` target and select `build` to build and install the library.
 
-4. You may need to update your linker so it sees the newly installed library (`ldconfig` on Linux).
+4. You may need to update your linker cache so it sees the newly installed library (`ldconfig` on Linux).
 
 ## Example Usage
 Specific usage details are given in the documentation
