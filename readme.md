@@ -10,7 +10,7 @@ This library brings a modern C++ interface to sockets, simplifies their use, and
 - Errors are thrown, never returned.
 - Sockets are closed gracefully when deconstructed.
 - Send functions block until all data is sent.
-- Operating System agnostic! (Windows and Linux explicitly maintained)
+- Operating System agnostic[⁽²⁾](#notes)! (Windows and Linux explicitly maintained)
 - Supports limited casting/constructing to/from C structures
 
 ## Setup
@@ -118,7 +118,8 @@ int main() {
 *More examples can be found in the examples directory.*
 
 ## Notes
-1. Address families/domains which do not have any strict formatting (i.e. `unix`) *do* require a family/domain hint to be passed to an address constructor
+1. Address families/domains which do not have any strict formatting (i.e. `unix`) *do* require a family/domain hint to be passed to an address constructor.
+2. Once the [AX.25 Linux rework](https://www.ampr.org/grants/grant-fixing-the-linux-kernel-ax-25/) is completed, the AX25 address will be limited to systems which can support that protocol. Socket interface will remain agnostic.
 
 ## Contact
 Project Creator

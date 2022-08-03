@@ -50,12 +50,6 @@ namespace sks {
 	};
 	//Unique option types
 	//SO_LINGER (linger struct)
-	
-	/*enum option {
-		debug = SO_DEBUG,
-		broadcast = SO_BROADCAST,
-		reuseaddr = SO_REUSEADDR
-	}*/
 		
 	class socket {
 	protected:
