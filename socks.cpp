@@ -24,7 +24,7 @@ extern "C" {
 #include <chrono>
 
 namespace sks {
-	versionInfo version = { 0, 9, 0 };
+	versionInfo version = { 0, 10, 0 };
 
 	static size_t socketsRunning = 0;
 	static void initialize() {
