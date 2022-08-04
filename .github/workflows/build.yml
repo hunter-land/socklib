@@ -39,4 +39,14 @@ jobs:
         cmake -S . -B build -G "Unix Makefiles" -DBUILD_SHARED_LIBS=OFF
         cd build
         make
-
+  build-static-windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build static library
+      run: |
+        cmake -S . -B build -DBUILD_SHARED_LIBS=OFF
+        cd build
+        cmake --build .
