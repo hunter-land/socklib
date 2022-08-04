@@ -6,7 +6,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, windows-latest]
       fail-fast: false
     steps:
     - uses: actions/checkout@v2
@@ -14,17 +14,17 @@ jobs:
       run: |
         cmake -S . -B build -DBUILD_SHARED_LIBS=ON
         cd build
-   - name: Build and install library (Linux)
-     if: runner.os == 'Linux' || runner.os == 'Ubuntu'
-     run: |
+    - name: Build and install library (Linux)
+      if: runner.os == 'Linux' || runner.os == 'Ubuntu'
+      run: |
         sudo make install
         sudo ldconfig
-   - name: Build and install library (Windows)
-     if: runner.os == 'Windows'
-     run: |
+    - name: Build and install library (Windows)
+      if: runner.os == 'Windows'
+      run: |
         cmake --install .
-   - name: Build and run tests
-     run: |
+    - name: Build and run tests
+      run: |
         echo "Library built and installed"
         cd ../tests
         cmake -S . -B build
