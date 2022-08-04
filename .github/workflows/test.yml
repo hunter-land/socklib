@@ -10,17 +10,26 @@ jobs:
       fail-fast: false
     steps:
     - uses: actions/checkout@v2
-    - name: Build and run tests with shared linking
+    - name: Build project files
       run: |
-        cmake -S . -B build -G "Unix Makefiles" -DBUILD_SHARED_LIBS=ON
+        cmake -S . -B build -DBUILD_SHARED_LIBS=ON
         cd build
+   - name: Build and install library (Linux)
+     if: runner.os == 'Linux' || runner.os == 'Ubuntu'
+     run: |
         sudo make install
         sudo ldconfig
+   - name: Build and install library (Windows)
+     if: runner.os == 'Windows'
+     run: |
+        cmake --install .
+   - name: Build and run tests
+     run: |
         echo "Library built and installed"
         cd ../tests
-        cmake -S . -B build -G "Unix Makefiles"
+        cmake -S . -B build
         cd build
-        make tests
+        cmake --build .
         ./tests
   test-static:
     runs-on: ${{ matrix.os }}
