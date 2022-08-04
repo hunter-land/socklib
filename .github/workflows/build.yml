@@ -15,7 +15,7 @@ jobs:
         cmake -S . -B build -G "Unix Makefiles" -DBUILD_SHARED_LIBS=ON
         cd build
         make
-  build-shared:
+  build-shared (windows-latest):
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -39,7 +39,7 @@ jobs:
         cmake -S . -B build -G "Unix Makefiles" -DBUILD_SHARED_LIBS=OFF
         cd build
         make
-  build-static:
+  build-static (windows-latest):
     runs-on: windows-latest
     strategy:
       fail-fast: false
