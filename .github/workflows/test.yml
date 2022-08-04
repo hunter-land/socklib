@@ -13,20 +13,21 @@ jobs:
     - name: Build project files
       run: |
         cmake -S . -B build -DBUILD_SHARED_LIBS=ON
-        cd build
     - name: Build and install library (Linux)
       if: runner.os == 'Linux' || runner.os == 'Ubuntu'
       run: |
+        cd build
         sudo make install
         sudo ldconfig
     - name: Build and install library (Windows)
       if: runner.os == 'Windows'
       run: |
+        cd build
         cmake --install .
     - name: Build and run tests
       run: |
         echo "Library built and installed"
-        cd ../tests
+        cd tests
         cmake -S . -B build
         cd build
         cmake --build .
