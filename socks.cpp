@@ -24,14 +24,6 @@ extern "C" {
 #include <chrono>
 #include <csignal>
 
-void signalDoNothing(int unused) {
-	//We got a SIGNAL! Neat.
-	//Do nothing, because we'd rather throw an exception than raise a signal
-}
-struct sigaction sigactionDoNothing {
-	{signalDoNothing}
-};
-
 namespace sks {
 	versionInfo version = { 0, 10, 0 };
 
@@ -269,17 +261,8 @@ namespace sks {
 		size_t sent = 0;
 		//send may not send all data at once, so we have a loop here
 		while (sent < data.size()) {
-			//NOTE: SIGPIPE can occur if we try to send on a closed connection (ie if peer closed it and we haven't taken notice yet)
-			//To prevent a SIGPIPE being raised, we set our own signal handler for it here and restore the previous handler after the call to send
-			//If a SIGPIPE would've occured, send returns -1 and sets errno to EPIPE
-			struct sigaction* prevSignal = nullptr;
-			sigaction(SIGPIPE, &sigactionDoNothing, prevSignal);
-
-			ssize_t r = ::send(m_sockFD, (const char*)data.data() + sent, data.size() - sent, 0); //Flags of 0 only for now, might open up later
-
-			//Restore signal handler
-			sigaction(SIGPIPE, prevSignal, NULL);
-
+			//NOTE: SIGPIPE is suppressed by MSG_NOSIGNAL
+			ssize_t r = ::send(m_sockFD, (const char*)data.data() + sent, data.size() - sent, MSG_NOSIGNAL); //Flags of 0 only for now, might open up later
 			//On success, these calls return the number of characters sent. On error, -1 is returned, and errno is set appropriately.
 			if (r == -1) {
 				throw sysErr(errno);
