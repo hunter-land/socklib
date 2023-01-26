@@ -82,6 +82,7 @@ namespace sks {
 		
 		bool operator==(const address& r) const;
 		bool operator!=(const address& r) const;
+		bool operator<(const address& r) const;
 		
 		domain addressDomain() const;
 		std::string name() const;
@@ -123,6 +124,7 @@ namespace sks {
 		
 		bool operator==(const IPv4Address& r) const;
 		bool operator!=(const IPv4Address& r) const;
+		bool operator<(const IPv4Address& r) const;
 	
 		std::array<uint8_t, 4> addr() const;
 		uint16_t port() const;
@@ -146,6 +148,7 @@ namespace sks {
 		
 		bool operator==(const IPv6Address& r) const;
 		bool operator!=(const IPv6Address& r) const;
+		bool operator<(const IPv6Address& r) const;
 		
 		std::array<uint16_t, 8> addr() const;
 		std::array<uint16_t, 3> sitePrefix() const;
@@ -172,6 +175,7 @@ namespace sks {
 		
 		bool operator==(const unixAddress& r) const;
 		bool operator!=(const unixAddress& r) const;
+		bool operator<(const unixAddress& r) const;
 		
 		std::string name() const;
 		bool named() const;
@@ -194,6 +198,7 @@ namespace sks {
 		
 		bool operator==(const ax25Address& r) const;
 		bool operator!=(const ax25Address& r) const;
+		bool operator<(const ax25Address& r) const;
 		
 		std::string callsign() const;
 		uint8_t ssid() const;

@@ -146,6 +146,25 @@ namespace sks {
 	bool address::operator!=(const address& r) const {
 		return !(*this == r);
 	}
+	bool address::operator<(const address& r) const {
+		if (m_domain != r.m_domain) {
+			return m_domain < r.m_domain;
+		}
+		switch (m_domain) {
+			case IPv4:
+				return *m_addresses.IPv4 < *r.m_addresses.IPv4;
+			case IPv6:
+				return *m_addresses.IPv6 < *r.m_addresses.IPv6;
+			case unix:
+				return *m_addresses.unix < *r.m_addresses.unix;
+			#ifdef has_ax25
+			case ax25:
+				return *m_addresses.ax25 == *r.m_addresses.ax25;
+			#endif
+		}
+		//Unknown domain, error
+		throw std::logic_error("Unknown domain");
+	}
 	domain address::addressDomain() const {
 		return m_domain;
 	}
@@ -257,6 +276,12 @@ namespace sks {
 	}
 	bool IPv4Address::operator!=(const IPv4Address& r) const {
 		return !(*this == r);
+	}
+	bool IPv4Address::operator<(const sks::IPv4Address& r) const {
+		if (m_addr != r.m_addr) {
+			return m_addr < r.m_addr;
+		}
+		return m_port < r.m_port;
 	}
 	std::array<uint8_t, 4> IPv4Address::addr() const {
 		return m_addr;
@@ -391,6 +416,12 @@ namespace sks {
 	bool IPv6Address::operator!=(const IPv6Address& r) const {
 		return !(*this == r);
 	}
+	bool IPv6Address::operator<(const IPv6Address& r) const {
+		if (m_addr != r.m_addr) {
+			return m_addr < r.m_addr;
+		}
+		return m_port < r.m_port;
+	}
 	std::array<uint16_t, 8> IPv6Address::addr() const {
 		return m_addr;
 	}
@@ -470,6 +501,9 @@ namespace sks {
 	}
 	bool unixAddress::operator!=(const unixAddress& r) const {
 		return m_addr != r.m_addr;
+	}
+	bool unixAddress::operator<(const sks::unixAddress& r) const {
+		return m_addr < r.m_addr;
 	}
 	std::string unixAddress::name() const {
 		if (named()) {
