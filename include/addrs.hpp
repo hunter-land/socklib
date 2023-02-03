@@ -7,10 +7,10 @@ extern "C" {
 		#include <sys/socket.h>
 		#include <netinet/in.h>
 		#include <sys/un.h>
-		/*#if __has_include (<netax25/axlib.h>)
+		#if __has_include (<netax25/axlib.h>)
 			#include <netax25/ax25.h>
-			#define has_ax25
-		#endif*/
+			//#define has_ax25
+		#endif
 	#elif defined _WIN32
 		#include <ws2tcpip.h> //WinSock 2 and socklen_t
 		#define UNIX_PATH_MAX 180
@@ -183,12 +183,13 @@ namespace sks {
 	
 	//Planning for ax25 address, cannot develop/test due to limited support and little documentation
 	#ifdef has_ax25
+	typedef std::array<uint8_t, sizeof(ax25_address)> ax25Call;
 	class ax25Address : public addressBase {
 	protected:
-		std::array<uint8_t, 7> m_call;
-		std::vector<std::array<uint8_t, 7>> m_digis; //digipeaters (if any)
+		ax25Call m_call;
+		std::vector<ax25Call> m_digis; //digipeaters (if any)
 
-		std::string m_name;
+		std::string m_name; //DEST [via (digitpeater)+] (YOUR first hop should be first digipeater, peer's first hop should be last digipeater)
 	public:
 		ax25Address(const std::string addrstr); //Parse address from string
 		ax25Address(const full_sockaddr_ax25 addr, const socklen_t len); //Construct from C struct

@@ -10,12 +10,12 @@ extern "C" {
 		#include <arpa/inet.h> //inet -> string
 	
 		#if defined __has_include
-			/*#if __has_include (<netax25/axlib.h>)
+			#if __has_include (<netax25/axlib.h>)
 				#include <netax25/ax25.h> //ax25 support and structs
 				#include <netax25/axlib.h> //ax25 manipulations, such as ax25_aton
 			
-				#define has_ax25
-			#endif*/
+				//#define has_ax25
+			#endif
 		#endif
 		#define __AS_POSIX__
 	#elif defined _WIN32
@@ -519,36 +519,40 @@ namespace sks {
 		return m_addr.size() > 0 && m_addr[0] != '\0';
 	}
 
-	//ax25Address (Not supported, hopefully in the future)
+	//ax25Address (Not officially supported, will be supported after the Deutscher Amateur Radio Club reworks the ax25 implementation with grant funds from the ARDC)
 	#ifdef has_ax25
 	ax25Address::ax25Address(const std::string addrstr) { //Parse address from string
 		full_sockaddr_ax25 addr;
-		//ax25_aton(const char *cp, struct full_sockaddr_ax25 *fsap);
 		socklen_t len = ax25_aton(addrstr.c_str(), &addr); //Populate
 		if (len == -1) {
-			//TODO: Confirm that errno is set here (likey but not validated)
 			throw sysErr(errno);
 		}
 		ax25Address(addr, len);
 	}
 	ax25Address::ax25Address(const full_sockaddr_ax25 addr, const socklen_t len) { //Construct from C struct
 		//Get values out of `addr` and store
-		memcpy(m_call.data(), addr.fsa_ax25.sax25_call.ax25_call, m_call.size()); //Just callsign (shifted left once, 6 characters) and ssid
-		int ndigis = addr.fsa_ax25.sax25_ndigis; //I assume this is the number of elements in fsa_digipeater (in basic sockaddr_ax25 for reading it as 0)
-		m_digis.resize(ndigis);
-		for(size_t i = 0; i < ndigis; i++) {
-			std::array<uint8_t, 7> digi;
-			memcpy(digi.data(), addr.fsa_digipeater[i].ax25_call, digi.size());
-			m_digis[i] = digi;
+		memcpy(m_call.data(), addr.fsa_ax25.sax25_call.ax25_call, m_call.size()); //Callsign (shifted left once, 6 characters) and ssid
+
+		m_digis.resize(addr.fsa_ax25.sax25_ndigis);
+		for(size_t i = 0; i < m_digis.size(); i++) {
+			memcpy(m_digis[i].data(), addr.fsa_digipeater[i].ax25_call, m_digis[i].size());
 		}
 
-		//Set name
+		//Set name; Should be using ntoa but that is only for a single callsign, NOT an ax25 address (which ax25_aton IS)
 		//const char* str = ax25_ntoa((&addr);
+		m_name = ax25_ntoa(&addr.fsa_ax25.sax25_call);
+		if (m_digis.size() > 0) {
+			m_name += " VIA";
+			for (size_t i = 0; i < m_digis.size(); i++) {
+				m_name += " " + std::string(ax25_ntoa(&addr.fsa_digipeater[i]));
+			}
+		}
 	}
 	ax25Address::operator full_sockaddr_ax25() const { //Cast to C struct
 		full_sockaddr_ax25 addr;
 		addr.fsa_ax25.sax25_family = AF_AX25;
-		memcpy(addr.fsa_ax25.sax25_call.ax25_call, m_call.data(), m_call.size()); //Copy address callsign
+		memcpy(addr.fsa_ax25.sax25_call.ax25_call, m_call.data(), m_call.size());
+
 		addr.fsa_ax25.sax25_ndigis = m_digis.size(); //Set ndigis
 		for (size_t i = 0; i < m_digis.size(); i++) { //Populate digis (if any)
 			memcpy(addr.fsa_digipeater[i].ax25_call, m_digis[i].data(), m_digis[i].size());
@@ -567,22 +571,24 @@ namespace sks {
 		return addrs;
 	}
 	bool ax25Address::operator==(const ax25Address& r) const {
-		//TODO: This function
+		//TODO: This (Should different digis be considered the same, or different?
+		throw std::logic_error("NOT YET SUPPORTED");
 	}
 	bool ax25Address::operator!=(const ax25Address& r) const {
-		//TODO: This function
+		return !(*this == r);
+	}
+	bool ax25Address::operator<(const ax25Address& r) const {
+		throw std::logic_error("NOT YET SUPPORTED");
 	}
 	std::string ax25Address::callsign() const {
 		//callsign is shifted left once, correct and convert it
-		std::string call(m_call.begin(), m_call.end() - 1); //Don't include SSID
-		for (char& c : call) {
-			c = c >> 1; //Shift right to correct
-		}
-		return call;
+		ax25_address addr;
+		memcpy(&addr, m_call.data(), m_call.size());
+		return ax25_ntoa(&addr);
 	}
 	uint8_t ax25Address::ssid() const {
 		uint8_t ssid = m_call[6];
-		return ssid; //TODO: Unshift this somehow
+		return ssid; //TODO: Unshift this somehow, maybe, if it is shifted
 	}
 	std::string ax25Address::name() const {
 		return m_name;
