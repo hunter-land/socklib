@@ -65,12 +65,41 @@ namespace sks {
 					try {
 						m_addresses.ax25 = new ax25Address(addrstr);
 						m_domain = ax25;
+						break;
 					} catch (std::exception& e) {}
 				#endif
 				throw std::runtime_error("Could not parse string to address. You may need to specify domain.");
 		}
 	}
 	address::address(sockaddr_storage from, socklen_t len) {
+		assign(from, len);
+	}
+	address::address(const addressBase& addr) {
+		assign((sockaddr_storage)addr, addr.size());
+	}
+	address::address(const address& addr) {
+		assign((sockaddr_storage)addr, addr.size());
+	}
+	address::address(address&& addr) {
+		m_domain = addr.m_domain;
+		m_addresses = addr.m_addresses;
+		addr.m_addresses.base = nullptr; //We now own the data, remove addr's pointer
+	}
+	address::~address() {
+		delete m_addresses.base;
+	}
+	address& address::operator=(const address& addr) {
+		assign((sockaddr_storage)addr, addr.size());
+		return *this;
+	}
+	address& address::operator=(address&& addr) {
+		m_domain = addr.m_domain;
+		m_addresses = addr.m_addresses;
+		addr.m_addresses.base = nullptr; //We now own the data, remove addr's pointer
+		return *this;
+	}
+	void address::assign(sockaddr_storage from, socklen_t len) {
+		delete m_addresses.base;
 		m_domain = (domain)from.ss_family;
 		switch (from.ss_family) {
 			case IPv4:
@@ -92,7 +121,6 @@ namespace sks {
 				throw sysErr(EFAULT);
 		}
 	}
-	address::address(const addressBase& addr) : address((sockaddr_storage)addr, addr.size()) {}
 	address::operator sockaddr_storage() const {
 		return (sockaddr_storage)*m_addresses.base;
 	}

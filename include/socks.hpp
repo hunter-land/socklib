@@ -76,14 +76,14 @@ namespace sks {
 		bool operator!=(const socket& r) const;
 
 		//Critical setup functions
-		void bind(const address address);
+		void bind(const address& address);
 		void listen(int backlog = 0xFF);
 		socket accept();
-		void connect(const address address);
+		void connect(const address& address);
 		
 		//Critical usage functions
-		void send(std::vector<uint8_t> data);
-		void send(std::vector<uint8_t> data, const address to);
+		void send(const std::vector<uint8_t>& data);
+		void send(const std::vector<uint8_t>& data, const address& to);
 		std::vector<uint8_t> receive(size_t bufSize = 0x10000);
 		std::vector<uint8_t> receive(address& from, size_t bufSize = 0x10000);
 		

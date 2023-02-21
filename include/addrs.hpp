@@ -64,12 +64,19 @@ namespace sks {
 			#ifdef has_ax25
 			ax25Address* ax25;
 			#endif
-			addressBase* base;
+			addressBase* base = nullptr;
 		} m_addresses;
 	public:
 		address(std::string addrstr, domain d = (domain)0);
 		address(sockaddr_storage from, socklen_t len);
-		address(const addressBase& addr); //Construct from any specific sub-type OR similar type (address copy-constructor uses this due to casting)
+		address(const addressBase& addr); //Construct from any specific sub-type OR similar type
+		address(const address& addr);
+		address(address&& addr);
+		~address();
+
+		address& operator=(const address& addr);
+		address& operator=(address&& addr);
+		void assign(sockaddr_storage from, socklen_t len);
 
 		operator sockaddr_storage() const;
 		socklen_t size() const;
