@@ -6,6 +6,7 @@ extern "C" {
 		#include <unistd.h> //close(...) and unlink(...)
 		#include <poll.h> //poll(...)
 		#include <unistd.h> //unlink(...)
+		#include <sys/time.h> //timeval
 		#define __AS_POSIX__
 	#elif defined _WIN32 //Windows system
 		#include <ws2tcpip.h> //WinSock 2
