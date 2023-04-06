@@ -15,6 +15,8 @@ extern "C" {
 		//#include <shlwapi.h> //PathCombineA
 		#pragma comment(lib, "Ws2_32.lib")
 
+		#define MSG_NOSIGNAL 0 //Windows does not have this flag, and instead has SO_NOSIGPIPE
+
 		#define poll WSAPoll
 		#define ssize_t int
 		#define errno WSAGetLastError() //Acceptable, but only if reading socket errors, per https://docs.microsoft.com/en-us/windows/win32/winsock/error-codes-errno-h-errno-and-wsagetlasterror-2
@@ -48,10 +50,10 @@ namespace sks {
 	
 	socket::socket(domain d, type t, int protocol) {
 		if (autoInitialize) {
-			socketsRunning++;
 			if (socketsRunning == 0) {
 				initialize();
 			}
+			socketsRunning++;
 		}
 
 		m_sockFD = ::socket(d, t, protocol);
@@ -81,6 +83,11 @@ namespace sks {
 		m_domain = d;
 		m_type = t;
 		m_protocol = protocol;
+
+		#ifdef __AS_WINDOWS__
+		//Windows doesn't support MSG_NOSIGNAL, but does support SO_NOSIGPIPE option, which achives the same results
+			socketOption((boolOption)SO_NOSIGPIPE, true);
+		#endif
 	}
 	
 	socket::socket(int sockFD, domain d, type t, int protocol) {
@@ -263,7 +270,7 @@ namespace sks {
 		//send may not send all data at once, so we have a loop here
 		while (sent < data.size()) {
 			//NOTE: SIGPIPE is suppressed by MSG_NOSIGNAL
-			ssize_t r = ::send(m_sockFD, (const char*)data.data() + sent, data.size() - sent, MSG_NOSIGNAL); //Flags of 0 only for now, might open up later
+			ssize_t r = ::send(m_sockFD, (const char*)data.data() + sent, data.size() - sent, MSG_NOSIGNAL); //Flags of MSG_NOSIGNAL only for now, might open up later
 			//On success, these calls return the number of characters sent. On error, -1 is returned, and errno is set appropriately.
 			if (r == -1) {
 				throw sysErr(errno);
@@ -276,7 +283,7 @@ namespace sks {
 		size_t sent = 0;
 		//send may not send all data at once, so we have a loop here
 		while (sent < data.size()) {
-			ssize_t r = ::sendto(m_sockFD, (const char*)data.data() + sent, data.size() - sent, 0, (sockaddr*)&addr, to.size()); //Flags of 0 only for now, might open up later
+			ssize_t r = ::sendto(m_sockFD, (const char*)data.data() + sent, data.size() - sent, MSG_NOSIGNAL, (sockaddr*)&addr, to.size()); //Flags of MSG_NOSIGNAL only for now, might open up later
 			if (r == -1) {
 				throw sysErr(errno);
 			}
@@ -286,7 +293,7 @@ namespace sks {
 	
 	std::vector<uint8_t> socket::receive(size_t bufSize) {
 		std::vector<uint8_t> buffer(bufSize);
-		ssize_t r = recv(m_sockFD, (char*)buffer.data(), buffer.size(), 0); //Flags of 0 only for now, might open up later
+		ssize_t r = recv(m_sockFD, (char*)buffer.data(), buffer.size(), MSG_NOSIGNAL); //Flags of MSG_NOSIGNAL only for now, might open up later
 		if (r == -1) {
 			throw sysErr(errno);
 		}
@@ -297,7 +304,7 @@ namespace sks {
 		std::vector<uint8_t> buffer(bufSize);
 		sockaddr_storage sa;
 		socklen_t salen = sizeof(sa);
-		ssize_t r = recvfrom(m_sockFD, (char*)buffer.data(), buffer.size(), 0, (sockaddr*)&sa, &salen); //Flags of 0 only for now, might open up later
+		ssize_t r = recvfrom(m_sockFD, (char*)buffer.data(), buffer.size(), MSG_NOSIGNAL, (sockaddr*)&sa, &salen); //Flags of MSG_NOSIGNAL only for now, might open up later
 		if (r == -1) {
 			throw sysErr(errno);
 		}
