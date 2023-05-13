@@ -85,8 +85,8 @@ namespace sks {
 		m_protocol = protocol;
 
 		#ifdef __AS_WINDOWS__
-		//Windows doesn't support MSG_NOSIGNAL, but does support SO_NOSIGPIPE option, which achives the same results
-			socketOption((boolOption)SO_NOSIGPIPE, true);
+		//Windows doesn't support MSG_NOSIGNAL, but does(?) support SO_NOSIGPIPE option, which achives the same results
+		//Windows also apparently doesn't use the pipe signal???
 		#endif
 	}
 	
