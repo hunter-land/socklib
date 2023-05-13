@@ -336,7 +336,7 @@ namespace sks {
 	}
 	std::chrono::microseconds socket::sendTimeout() {
 		timeval tv;
-		socklen_t tvl;
+		socklen_t tvl = sizeof(tv);
 		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, (char*)&tv, &tvl);
 		if (e == -1) {
 			throw sysErr(errno);
@@ -355,7 +355,7 @@ namespace sks {
 	}
 	std::chrono::microseconds socket::receiveTimeout() {
 		timeval tv;
-		socklen_t tvl;
+		socklen_t tvl = sizeof(tv);
 		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, &tvl);
 		if (e == -1) {
 			throw sysErr(errno);
