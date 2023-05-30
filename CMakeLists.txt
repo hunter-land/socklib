@@ -22,6 +22,12 @@ set(HEADER_FILES "${INCLUDE_DIR}/socks.hpp" "${INCLUDE_DIR}/addrs.hpp" "${INCLUD
 add_library(socks ${SOURCE_FILES})
 set_target_properties(socks PROPERTIES VERSION ${PROJECT_VERSION})
 set_target_properties(socks PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")
+
+# Windows needs WinSock linked
+if(WIN32)
+  target_link_libraries(socks wsock32 ws2_32)
+endif()
+
 # Define install options
 install(
 	TARGETS socks
