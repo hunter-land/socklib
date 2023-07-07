@@ -334,7 +334,7 @@ namespace sks {
 			throw sysErr(errno);
 		}
 	}
-	std::chrono::microseconds socket::sendTimeout() {
+	std::chrono::microseconds socket::sendTimeout() const {
 		timeval tv;
 		socklen_t tvl = sizeof(tv);
 		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, (char*)&tv, &tvl);
@@ -353,7 +353,7 @@ namespace sks {
 			throw sysErr(errno);
 		}
 	}
-	std::chrono::microseconds socket::receiveTimeout() {
+	std::chrono::microseconds socket::receiveTimeout() const {
 		timeval tv;
 		socklen_t tvl = sizeof(tv);
 		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, &tvl);
@@ -364,7 +364,7 @@ namespace sks {
 		return timevalToMicroseconds(tv);
 	}
 
-	bool socket::writeReady(std::chrono::milliseconds timeout) {
+	bool socket::writeReady(std::chrono::milliseconds timeout) const {
 		//Check if the socket can be written to, waiting for up to <timeout> milliseconds
 		pollfd pfd;
 		pfd.fd = m_sockFD;
@@ -378,7 +378,7 @@ namespace sks {
 
 		return (pfd.revents & POLLOUT) == POLLOUT;
 	}
-	bool socket::readReady(std::chrono::milliseconds timeout) {
+	bool socket::readReady(std::chrono::milliseconds timeout) const {
 		pollfd pfd;
 		pfd.fd = m_sockFD;
 		pfd.events = POLLIN;
@@ -398,7 +398,7 @@ namespace sks {
 			throw sysErr(errno);
 		}
 	}
-	bool socket::socketOption(boolOption option, optionLevel level) {
+	bool socket::socketOption(boolOption option, optionLevel level) const {
 		bool value;
 		socklen_t len;
 		int e = getsockopt(m_sockFD, level, option, (char*)&value, &len);
@@ -413,7 +413,7 @@ namespace sks {
 			throw sysErr(errno);
 		}
 	}
-	int socket::socketOption(intOption option, optionLevel level) {
+	int socket::socketOption(intOption option, optionLevel level) const {
 		int value;
 		socklen_t len;
 		int e = getsockopt(m_sockFD, level, option, (char*)&value, &len);
@@ -423,7 +423,7 @@ namespace sks {
 		return value;
 	}
 	
-	address socket::connectedAddress() {
+	address socket::connectedAddress() const {
 		sockaddr_storage sa;
 		socklen_t salen = sizeof(sa);
 		int e = getpeername(m_sockFD, (sockaddr*)&sa, &salen);
@@ -432,7 +432,7 @@ namespace sks {
 		}
 		return address(sa, salen);
 	}
-	address socket::localAddress() {
+	address socket::localAddress() const {
 		sockaddr_storage sa;
 		socklen_t salen = sizeof(sa);
 		int e = getsockname(m_sockFD, (sockaddr*)&sa, &salen);

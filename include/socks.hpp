@@ -89,23 +89,23 @@ namespace sks {
 		
 		//Critical utility functions
 		void sendTimeout(std::chrono::microseconds timeout);
-		std::chrono::microseconds sendTimeout();
+		std::chrono::microseconds sendTimeout() const;
 		void receiveTimeout(std::chrono::microseconds timeout);
-		std::chrono::microseconds receiveTimeout();
-		bool writeReady(std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
-		bool readReady(std::chrono::milliseconds timeout = std::chrono::milliseconds(0)); //NOTE: Returns true if the remote socket is closed; check if receive returns a vector of size 0
+		std::chrono::microseconds receiveTimeout() const;
+		bool writeReady(std::chrono::milliseconds timeout = std::chrono::milliseconds(0)) const;
+		bool readReady(std::chrono::milliseconds timeout = std::chrono::milliseconds(0)) const; //NOTE: Returns true if the remote socket is closed; check if receive returns a vector of size 0
 		//set/get option bool
 		void socketOption(boolOption option, bool value, optionLevel level = socketLevel);
-		bool socketOption(boolOption option, optionLevel level = socketLevel);
+		bool socketOption(boolOption option, optionLevel level = socketLevel) const;
 		//set/get option int
 		void socketOption(intOption option, int value, optionLevel level = socketLevel);
-		int socketOption(intOption option, optionLevel level = socketLevel);
+		int socketOption(intOption option, optionLevel level = socketLevel) const;
 
 		
 		//Important utility functions
 		//bool connected();
-		address connectedAddress();
-		address localAddress();
+		address connectedAddress() const;
+		address localAddress() const;
 	};
 	
 	std::pair<socket, socket> createUnixPair(type t, int protocol = 0);
