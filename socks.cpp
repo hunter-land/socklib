@@ -7,6 +7,7 @@ extern "C" {
 		#include <poll.h> //poll(...)
 		#include <unistd.h> //unlink(...)
 		#include <sys/time.h> //timeval
+		#include <sys/ioctl.h>
 		#define __AS_POSIX__
 	#elif defined _WIN32 //Windows system
 		#include <ws2tcpip.h> //WinSock 2
@@ -389,6 +390,23 @@ namespace sks {
 		}
 
 		return (pfd.revents & POLLIN) == POLLIN;
+	}
+	size_t socket::bytesReady() const {
+		#ifdef __AS_POSIX__
+			int bytes;
+			int r = ioctl(m_sockFD, FIONREAD, &bytes);
+			if (r == -1) {
+				throw sysErr(errno);
+			}
+		#else
+			unsigned long bytes;
+			int r = ioctlsocket(m_sockFD, FIONREAD, &bytes);
+			if (r != 0) {
+				throw sysErr(errno);
+			}
+		#endif
+
+		return bytes;
 	}
 	
 	void socket::socketOption(boolOption option, bool value, optionLevel level) {

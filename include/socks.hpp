@@ -94,6 +94,7 @@ namespace sks {
 		std::chrono::microseconds receiveTimeout() const;
 		bool writeReady(std::chrono::milliseconds timeout = std::chrono::milliseconds(0)) const;
 		bool readReady(std::chrono::milliseconds timeout = std::chrono::milliseconds(0)) const; //NOTE: Returns true if the remote socket is closed; check if receive returns a vector of size 0
+		size_t bytesReady() const;
 		//set/get option bool
 		void socketOption(boolOption option, bool value, optionLevel level = socketLevel);
 		bool socketOption(boolOption option, optionLevel level = socketLevel) const;
