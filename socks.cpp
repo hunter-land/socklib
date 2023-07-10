@@ -19,6 +19,8 @@ extern "C" {
 		#define MSG_NOSIGNAL 0 //Windows does not have this flag, and instead has SO_NOSIGPIPE
 
 		#define poll WSAPoll
+		#define POLLIN POLLRDNORM
+		#define POLLOUT POLLWRNORM
 		#define ssize_t int
 		#define errno WSAGetLastError() //Acceptable, but only if reading socket errors, per https://docs.microsoft.com/en-us/windows/win32/winsock/error-codes-errno-h-errno-and-wsagetlasterror-2
 		#define __AS_WINDOWS__
@@ -314,55 +316,66 @@ namespace sks {
 		return buffer;
 	}
 	
-	timeval microsecondsToTimeval(std::chrono::microseconds us) {
-		//timeval { time_t tv_sec; suseconds_t tv_usec; };
-		auto seconds = std::chrono::duration_cast<std::chrono::seconds>(us); //Remove microseconds component
-		auto microseconds = us % std::chrono::seconds(1); //Remove seconds component
-		timeval tv;
-		tv.tv_sec = seconds.count();
-		tv.tv_usec = microseconds.count();
-		return tv;
-	}
-	std::chrono::microseconds timevalToMicroseconds(timeval tv) {
-		return std::chrono::microseconds(tv.tv_usec) + std::chrono::seconds(tv.tv_sec);
-	}
+	#ifdef __AS_POSIX__
+		typedef timeval timeoutT;
+		timeval microsecondsToTimeoutT(std::chrono::microseconds us) {
+			//timeval { time_t tv_sec; suseconds_t tv_usec; };
+			auto seconds = std::chrono::duration_cast<std::chrono::seconds>(us); //Remove microseconds component
+			auto microseconds = us % std::chrono::seconds(1); //Remove seconds component
+			timeval tv;
+			tv.tv_sec = seconds.count();
+			tv.tv_usec = microseconds.count();
+			return tv;
+		}
+		std::chrono::microseconds timeoutTToMicroseconds(timeval tv) {
+			return std::chrono::microseconds(tv.tv_usec) + std::chrono::seconds(tv.tv_sec);
+		}
+	#else
+		typedef DWORD timeoutT;
+		DWORD microsecondsToTimeoutT(std::chrono::microseconds us) {
+			return us.count() / 1000;
+		}
+		std::chrono::microseconds timeoutTToMicroseconds(DWORD ms) {
+			return std::chrono::microseconds(ms * 1000);
+		}
+	#endif
 
 	void socket::sendTimeout(std::chrono::microseconds timeout) {
 		//Set the tx timeout option
-		timeval tv = microsecondsToTimeval(timeout);
+		timeoutT tv = microsecondsToTimeoutT(timeout);
 		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv));
 		if (e == -1) {
 			throw sysErr(errno);
 		}
 	}
 	std::chrono::microseconds socket::sendTimeout() const {
-		timeval tv;
+		timeoutT tv;
 		socklen_t tvl = sizeof(tv);
 		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_SNDTIMEO, (char*)&tv, &tvl);
 		if (e == -1) {
 			throw sysErr(errno);
 		}
 		
-		return timevalToMicroseconds(tv);
+		return timeoutTToMicroseconds(tv);
 	}
 	
 	void socket::receiveTimeout(std::chrono::microseconds timeout) {
 		//Set the rx timeout option
-		timeval tv = microsecondsToTimeval(timeout);
+		timeoutT tv = microsecondsToTimeoutT(timeout);
 		int e = setsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
 		if (e == -1) {
 			throw sysErr(errno);
 		}
 	}
 	std::chrono::microseconds socket::receiveTimeout() const {
-		timeval tv;
+		timeoutT tv;
 		socklen_t tvl = sizeof(tv);
 		int e = getsockopt(m_sockFD, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, &tvl);
 		if (e == -1) {
 			throw sysErr(errno);
 		}
 
-		return timevalToMicroseconds(tv);
+		return timeoutTToMicroseconds(tv);
 	}
 
 	bool socket::writeReady(std::chrono::milliseconds timeout) const {
@@ -372,7 +385,11 @@ namespace sks {
 		pfd.events = POLLOUT;
 		pfd.revents = 0; //Zero it out since we read later and don't want any issues
 		int r = poll(&pfd, 1, timeout.count());
-		if (r == -1) {
+		#ifdef __AS_POSIX__
+			if (r == -1) {
+		#else
+			if (r == SOCKET_ERROR) {
+		#endif
 			throw sysErr(errno);
 		}
 		//POLLHUP and POLLOUT are mutually exclusive; this function will return false if socket disconnects
@@ -385,7 +402,11 @@ namespace sks {
 		pfd.events = POLLIN;
 		pfd.revents = 0; //Zero it out since we read later and don't want any issues
 		int r = poll(&pfd, 1, timeout.count());
-		if (r == -1) {
+		#ifdef __AS_POSIX__
+			if (r == -1) {
+		#else
+			if (r == SOCKET_ERROR) {
+		#endif
 			throw sysErr(errno);
 		}
 
