@@ -98,7 +98,6 @@ namespace sks {
 	//address base-class/interface
 	class addressBase {
 	protected:
-		
 		addressBase();
 	public:
 		virtual ~addressBase();

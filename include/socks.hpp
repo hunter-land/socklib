@@ -29,10 +29,6 @@ namespace sks {
 	};
 	extern versionInfo version;
 
-	//Initialize the socket library (when applicable) automatically
-	//This option only does something on
-	static bool autoInitialize = true;
-
 	enum boolOption {
 		debug = SO_DEBUG,
 		broadcast = SO_BROADCAST,

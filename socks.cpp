@@ -1,5 +1,6 @@
 #include "include/socks.hpp"
 #include "include/errors.hpp"
+#include "include/initialization.hpp"
 extern "C" {
 	#if __has_include(<unistd.h>) & __has_include(<sys/socket.h>) //SHOULD be true if POSIX, false otherwise
 		#include <sys/socket.h> //general socket
@@ -33,30 +34,9 @@ extern "C" {
 namespace sks {
 	versionInfo version = { 0, 10, 0 };
 
-	static size_t socketsRunning = 0;
-	static void initialize() {
-		#ifdef __AS_WINDOWS__
-			// Initialize Winsock
-			WSADATA wsaData;
-			int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData); //Initialize version 2.2
-			if (iResult != 0) {
-				throw sysErr(iResult);
-			}
-		#endif
-	}
-	static void deinitialize() {
-		#ifdef __AS_WINDOWS__
-			//Clean up Winsock
-			WSACleanup();
-		#endif
-	}
-	
 	socket::socket(domain d, type t, int protocol) {
 		if (autoInitialize) {
-			if (socketsRunning == 0) {
-				initialize();
-			}
-			socketsRunning++;
+			initialize();
 		}
 
 		m_sockFD = ::socket(d, t, protocol);
@@ -102,7 +82,7 @@ namespace sks {
 		m_domain = d;
 		m_type = t;
 		m_protocol = protocol;
-		socketsRunning++; //Since we have been given an already-existing socket, we don't initialize here, but we do increment since we are now managing the socket
+		libraryUsers++; //Since we have been given an already-existing socket, we don't initialize here, but we do increment since we are now managing the socket
 	}
 	
 	socket::socket(socket&& s) {
@@ -169,10 +149,7 @@ namespace sks {
 			}
 
 			if (autoInitialize) {
-				socketsRunning--;
-				if (socketsRunning == 0) {
-					deinitialize();
-				}
+				deinitialize();
 			}
 		}
 	}

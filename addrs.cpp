@@ -1,5 +1,6 @@
 #include "include/addrs.hpp"
 #include "include/errors.hpp"
+#include "include/initialization.hpp"
 #include <cstring>
 #include <regex>
 extern "C" {
@@ -200,8 +201,16 @@ namespace sks {
 		return m_addresses.base->name();
 	}
 
-	addressBase::addressBase() {}
-	addressBase::~addressBase() {}
+	addressBase::addressBase() {
+		if (autoInitialize) {
+			initialize(); //addresses cause initialization because WSA needs to be running to parse addresses
+		}
+	}
+	addressBase::~addressBase() {
+		if (autoInitialize) {
+			deinitialize();
+		}
+	}
 
 	IPv4Address::IPv4Address(uint16_t port) : IPv4Address("0.0.0.0:" + std::to_string(port)) {} //Construct an any address
 	IPv4Address::IPv4Address(const std::string addrstr) { //Parse address from string
@@ -257,7 +266,7 @@ namespace sks {
 			#endif
 			
 			//Throw
-			//throw std::system_error(std::make_error_code((std::errc)error), "sockaddress::sockaddress");
+			//throw sysErr(error);
 			throw std::runtime_error("Could not get IPv4 address from " + addrstr);
 		}
 		

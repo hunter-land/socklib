@@ -15,8 +15,8 @@ if (NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Set file variables
-set(SOURCE_FILES "socks.cpp" "addrs.cpp" "errors.cpp")
-set(HEADER_FILES "${INCLUDE_DIR}/socks.hpp" "${INCLUDE_DIR}/addrs.hpp" "${INCLUDE_DIR}/errors.hpp")
+set(SOURCE_FILES "socks.cpp" "addrs.cpp" "errors.cpp" "initialization.cpp")
+set(HEADER_FILES "${INCLUDE_DIR}/socks.hpp" "${INCLUDE_DIR}/addrs.hpp" "${INCLUDE_DIR}/errors.hpp" "${INCLUDE_DIR}/initialization.hpp")
 
 # Define library and properties
 add_library(socks ${SOURCE_FILES})
