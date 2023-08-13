@@ -511,6 +511,7 @@ namespace sks {
 			pfd.fd = sockets[i].get().m_sockFD;
 			pfd.events = POLLOUT;
 			pfd.revents = 0; //Zero it out since we read later and don't want any issues
+			pollstructs.push_back(pfd);
 		}
 
 		//Do poll
@@ -535,6 +536,7 @@ namespace sks {
 			pfd.fd = sockets[i].get().m_sockFD;
 			pfd.events = POLLIN;
 			pfd.revents = 0; //Zero it out since we read later and don't want any issues
+			pollstructs.push_back(pfd);
 		}
 
 		//Do poll
