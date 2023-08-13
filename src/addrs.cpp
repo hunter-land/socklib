@@ -30,7 +30,7 @@ extern "C" {
 
 namespace sks {
 
-	address::address(std::string addrstr, domain d) {
+	address::address(const std::string& addrstr, domain d) {
 		//If we are not given a specific domain to check, try to parse as: IPv6, IPv4
 		switch (d) {
 			case IPv4:
@@ -56,23 +56,23 @@ namespace sks {
 					m_addresses.IPv6 = new IPv6Address(addrstr);
 					m_domain = IPv6;
 					break;
-				} catch (std::exception& e) {} //Do nothing, just try the next one
+				} catch (const std::exception& e) {} //Do nothing, just try the next one
 				try {
 					m_addresses.IPv4 = new IPv4Address(addrstr);
 					m_domain = IPv4;
 					break;
-				} catch (std::exception& e) {}
+				} catch (const std::exception& e) {}
 				#ifdef has_ax25
 					try {
 						m_addresses.ax25 = new ax25Address(addrstr);
 						m_domain = ax25;
 						break;
-					} catch (std::exception& e) {}
+					} catch (const std::exception& e) {}
 				#endif
 				throw std::runtime_error("Could not parse string to address. You may need to specify domain.");
 		}
 	}
-	address::address(sockaddr_storage from, socklen_t len) {
+	address::address(const sockaddr_storage& from, socklen_t len) {
 		assign(from, len);
 	}
 	address::address(const addressBase& addr) {
@@ -99,7 +99,7 @@ namespace sks {
 		addr.m_addresses.base = nullptr; //We now own the data, remove addr's pointer
 		return *this;
 	}
-	void address::assign(sockaddr_storage from, socklen_t len) {
+	void address::assign(const sockaddr_storage& from, socklen_t len) {
 		delete m_addresses.base;
 		m_domain = (domain)from.ss_family;
 		switch (from.ss_family) {
@@ -213,7 +213,7 @@ namespace sks {
 	}
 
 	IPv4Address::IPv4Address(uint16_t port) : IPv4Address("0.0.0.0:" + std::to_string(port)) {} //Construct an any address
-	IPv4Address::IPv4Address(const std::string addrstr) { //Parse address from string
+	IPv4Address::IPv4Address(const std::string& addrstr) { //Parse address from string
 		m_name = addrstr;
 		//Parse it!
 		/*Accepted formats:
@@ -279,7 +279,7 @@ namespace sks {
 		//Delete
 		freeaddrinfo(results);
 	}
-	IPv4Address::IPv4Address(const sockaddr_in addr) { //Construct from C struct
+	IPv4Address::IPv4Address(const sockaddr_in& addr) { //Construct from C struct
 		memcpy(m_addr.data(), &addr.sin_addr, 4);
 		m_port = ntohs(addr.sin_port);
 		//Set m_name accordingly
@@ -337,7 +337,7 @@ namespace sks {
 	}
 	
 	IPv6Address::IPv6Address(uint16_t port) : IPv6Address("[::]:" + std::to_string(port)) {} //Construct an any address
-	IPv6Address::IPv6Address(const std::string addrstr) { //Parse address from string
+	IPv6Address::IPv6Address(const std::string& addrstr) { //Parse address from string
 		m_name = addrstr;
 		//Parse it!
 		/*Accepted formats:
@@ -413,7 +413,7 @@ namespace sks {
 		//Delete
 		freeaddrinfo(results);
 	}
-	IPv6Address::IPv6Address(const sockaddr_in6 addr) { //Construct from C struct
+	IPv6Address::IPv6Address(const sockaddr_in6& addr) { //Construct from C struct
 		memcpy(m_addr.data(), &addr.sin6_addr, 16);
 		swapEndian(m_addr.data(), m_addr.size());
 		m_port = ntohs(addr.sin6_port);
@@ -484,7 +484,7 @@ namespace sks {
 		return m_name;
 	}
 
-	unixAddress::unixAddress(const std::string addrstr) { //Parse address from string
+	unixAddress::unixAddress(const std::string& addrstr) { //Parse address from string
 		//pathnames only (up to sizeof(sockaddr_un.sun_pathlen))
 		size_t max = sizeof(sockaddr_un::sun_path);
 		if (addrstr.size() + 1 > max) {
@@ -492,7 +492,7 @@ namespace sks {
 		}
 		m_addr = std::vector<char>(addrstr.begin(), addrstr.end());
 	}
-	unixAddress::unixAddress(const sockaddr_un addr, const socklen_t len) { //Construct from C struct
+	unixAddress::unixAddress(const sockaddr_un& addr, const socklen_t len) { //Construct from C struct
 		if ((size_t)len > offsetof(sockaddr_un, sun_path) + 1 && addr.sun_path[0] != '\0') {
 			//pathname
 			size_t pathlen = len - offsetof(sockaddr_un, sun_path) - 1;

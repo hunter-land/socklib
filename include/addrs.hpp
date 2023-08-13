@@ -67,8 +67,8 @@ namespace sks {
 			addressBase* base = nullptr;
 		} m_addresses;
 	public:
-		address(std::string addrstr, domain d = (domain)0);
-		address(sockaddr_storage from, socklen_t len);
+		address(const std::string& addrstr, domain d = (domain)0);
+		address(const sockaddr_storage& from, socklen_t len);
 		address(const addressBase& addr); //Construct from any specific sub-type OR similar type
 		address(const address& addr);
 		address(address&& addr);
@@ -76,7 +76,7 @@ namespace sks {
 
 		address& operator=(const address& addr);
 		address& operator=(address&& addr);
-		void assign(sockaddr_storage from, socklen_t len);
+		void assign(const sockaddr_storage& from, socklen_t len);
 
 		operator sockaddr_storage() const;
 		socklen_t size() const;
@@ -122,11 +122,11 @@ namespace sks {
 		std::string m_name;
 	public:
 		IPv4Address(uint16_t port = 0); //Construct an any address
-		IPv4Address(const std::string addrstr); //Parse address from string
-		IPv4Address(const sockaddr_in addr); //Construct from C struct
+		IPv4Address(const std::string& addrstr); //Parse address from string
+		IPv4Address(const sockaddr_in& addr); //Construct from C struct
 		operator sockaddr_in() const; //Cast to C struct
-		socklen_t size() const; //Length associated with above (sockaddr_in cast)
-		operator sockaddr_storage() const;
+		socklen_t size() const override; //Length associated with above (sockaddr_in cast)
+		operator sockaddr_storage() const override;
 		
 		bool operator==(const IPv4Address& r) const;
 		bool operator!=(const IPv4Address& r) const;
@@ -134,7 +134,7 @@ namespace sks {
 	
 		std::array<uint8_t, 4> addr() const;
 		uint16_t port() const;
-		std::string name() const;
+		std::string name() const override;
 	};
 	
 	class IPv6Address : public addressBase {
@@ -146,11 +146,11 @@ namespace sks {
 		std::string m_name;
 	public:
 		IPv6Address(uint16_t port = 0); //Construct an any address
-		IPv6Address(const std::string addrstr); //Parse address from string
-		IPv6Address(const sockaddr_in6 addr); //Construct from C struct
+		IPv6Address(const std::string& addrstr); //Parse address from string
+		IPv6Address(const sockaddr_in6& addr); //Construct from C struct
 		operator sockaddr_in6() const; //Cast to C struct
-		socklen_t size() const; //Length associated with above (sockaddr_in6 cast)
-		operator sockaddr_storage() const;
+		socklen_t size() const override; //Length associated with above (sockaddr_in6 cast)
+		operator sockaddr_storage() const override;
 		
 		bool operator==(const IPv6Address& r) const;
 		bool operator!=(const IPv6Address& r) const;
@@ -163,7 +163,7 @@ namespace sks {
 		uint16_t port() const;
 		uint32_t flowInfo() const;
 		uint32_t scopeId() const;
-		std::string name() const;
+		std::string name() const override;
 	};
 	
 	class unixAddress : public addressBase {
@@ -173,17 +173,17 @@ namespace sks {
 		//abstract (m_addr[0] == '\0')
 		std::vector<char> m_addr;
 	public:
-		unixAddress(const std::string addrstr); //Parse address from string
-		unixAddress(const sockaddr_un addr, const socklen_t len); //Construct from C struct
+		unixAddress(const std::string& addrstr); //Parse address from string
+		unixAddress(const sockaddr_un& addr, const socklen_t len); //Construct from C struct
 		operator sockaddr_un() const; //Cast to C struct
-		socklen_t size() const; //Length associated with above (sockaddr_un cast)
-		operator sockaddr_storage() const;
+		socklen_t size() const override; //Length associated with above (sockaddr_un cast)
+		operator sockaddr_storage() const override;
 		
 		bool operator==(const unixAddress& r) const;
 		bool operator!=(const unixAddress& r) const;
 		bool operator<(const unixAddress& r) const;
 		
-		std::string name() const;
+		std::string name() const override;
 		bool named() const;
 	};
 	
@@ -197,11 +197,11 @@ namespace sks {
 
 		std::string m_name; //DEST [via (digitpeater)+] (YOUR first hop should be first digipeater, peer's first hop should be last digipeater)
 	public:
-		ax25Address(const std::string addrstr); //Parse address from string
-		ax25Address(const full_sockaddr_ax25 addr, const socklen_t len); //Construct from C struct
+		ax25Address(const std::string& addrstr); //Parse address from string
+		ax25Address(const full_sockaddr_ax25& addr, const socklen_t len); //Construct from C struct
 		operator full_sockaddr_ax25() const; //Cast to C struct
-		socklen_t size() const; //Length associated with above (full_sockaddr_ax25 cast)
-		operator sockaddr_storage() const;
+		socklen_t size() const override; //Length associated with above (full_sockaddr_ax25 cast)
+		operator sockaddr_storage() const override;
 		
 		bool operator==(const ax25Address& r) const;
 		bool operator!=(const ax25Address& r) const;
@@ -209,7 +209,7 @@ namespace sks {
 		
 		std::string callsign() const;
 		uint8_t ssid() const;
-		std::string name() const;
+		std::string name() const override;
 	};
 	#endif
 };

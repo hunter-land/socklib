@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="1">
+    <builddir>socks-cppcheck-build-dir</builddir>
+    <analyze-all-vs-configs>false</analyze-all-vs-configs>
+    <check-headers>true</check-headers>
+    <check-unused-templates>true</check-unused-templates>
+    <max-ctu-depth>8</max-ctu-depth>
+    <max-template-recursion>128</max-template-recursion>
+    <includedir>
+        <dir name="include/"/>
+    </includedir>
+    <undefines>
+        <undefine>has_ax25</undefine>
+    </undefines>
+    <paths>
+        <dir name="src"/>
+    </paths>
+    <suppressions>
+        <suppression>useInitializationList</suppression>
+    </suppressions>
+    <safe-checks>
+        <class-public/>
+    </safe-checks>
+    <addons>
+        <addon>threadsafety</addon>
+        <addon>y2038</addon>
+    </addons>
+</project>
