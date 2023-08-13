@@ -1,6 +1,6 @@
-#include "include/addrs.hpp"
-#include "include/errors.hpp"
-#include "include/initialization.hpp"
+#include "addrs.hpp"
+#include "errors.hpp"
+#include "initialization.hpp"
 #include <cstring>
 #include <regex>
 extern "C" {

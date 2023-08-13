@@ -1,6 +1,6 @@
-#include "include/socks.hpp"
-#include "include/errors.hpp"
-#include "include/initialization.hpp"
+#include "socks.hpp"
+#include "errors.hpp"
+#include "initialization.hpp"
 extern "C" {
 	#if __has_include(<unistd.h>) & __has_include(<sys/socket.h>) //SHOULD be true if POSIX, false otherwise
 		#include <sys/socket.h> //general socket

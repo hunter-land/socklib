@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_FLAGS_RELEASE "-Os ${CMAKE_CXX_FLAGS_RELEASE}") #Release build should include -Os by default
 
 # Set our public include directory for our headers
+set(SOURCE_DIR "${CMAKE_SOURCE_DIR}/src")
 set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
 include(GNUInstallDirs) #GNUInstallDirs (a default module) is required for this CMake
 
@@ -15,13 +16,14 @@ if (NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Set file variables
-set(SOURCE_FILES "socks.cpp" "addrs.cpp" "errors.cpp" "initialization.cpp")
+set(SOURCE_FILES "${SOURCE_DIR}/socks.cpp" "${SOURCE_DIR}/addrs.cpp" "${SOURCE_DIR}/errors.cpp" "${SOURCE_DIR}/initialization.cpp")
 set(HEADER_FILES "${INCLUDE_DIR}/socks.hpp" "${INCLUDE_DIR}/addrs.hpp" "${INCLUDE_DIR}/errors.hpp" "${INCLUDE_DIR}/initialization.hpp")
 
 # Define library and properties
 add_library(socks ${SOURCE_FILES})
 set_target_properties(socks PROPERTIES VERSION ${PROJECT_VERSION})
 set_target_properties(socks PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")
+target_include_directories(socks PRIVATE ${INCLUDE_DIR})
 
 # Windows needs WinSock linked
 if(WIN32)

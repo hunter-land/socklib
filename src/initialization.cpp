@@ -1,5 +1,5 @@
-#include "include/initialization.hpp"
-#include "include/errors.hpp"
+#include "initialization.hpp"
+#include "errors.hpp"
 extern "C" {
 	#ifndef _WIN32 //POSIX, for normal people
 		#define __AS_POSIX__
