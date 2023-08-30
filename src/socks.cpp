@@ -245,12 +245,15 @@ namespace sks {
 		//Nothing went wrong! We are now connected and theoretically ready to send/receive data
 	}
 	
-	void socket::send(const std::vector<uint8_t>& data) {
+	void socket::send(const std::vector<uint8_t>& data, int flags) {
+		return send(data.data(), data.size(), flags);
+	}
+	void socket::send(const uint8_t* data, size_t len, int flags) {
 		size_t sent = 0;
 		//send may not send all data at once, so we have a loop here
-		while (sent < data.size()) {
+		while (sent < len) {
 			//NOTE: SIGPIPE is suppressed by MSG_NOSIGNAL
-			ssize_t r = ::send(m_sockFD, (const char*)data.data() + sent, data.size() - sent, MSG_NOSIGNAL); //Flags of MSG_NOSIGNAL only for now, might open up later
+			ssize_t r = ::send(m_sockFD, (const char*)data + sent, len - sent, flags | MSG_NOSIGNAL);
 			//On success, these calls return the number of characters sent. On error, -1 is returned, and errno is set appropriately.
 			if (r == -1) {
 				throw sysErr(errno);
@@ -258,12 +261,15 @@ namespace sks {
 			sent += r; //We sent r bytes with this send
 		}
 	}
-	void socket::send(const std::vector<uint8_t>& data, const address& to) {
+	void socket::send(const std::vector<uint8_t>& data, const address& to, int flags) {
+		return send(data.data(), data.size(), to, flags);
+	}
+	void socket::send(const uint8_t* data, size_t len, const address& to, int flags) {
 		sockaddr_storage addr = to;
 		size_t sent = 0;
 		//send may not send all data at once, so we have a loop here
-		while (sent < data.size()) {
-			ssize_t r = ::sendto(m_sockFD, (const char*)data.data() + sent, data.size() - sent, MSG_NOSIGNAL, (sockaddr*)&addr, to.size()); //Flags of MSG_NOSIGNAL only for now, might open up later
+		while (sent < len) {
+			ssize_t r = ::sendto(m_sockFD, (const char*)data + sent, len - sent, flags | MSG_NOSIGNAL, (sockaddr*)&addr, to.size());
 			if (r == -1) {
 				throw sysErr(errno);
 			}
@@ -271,26 +277,34 @@ namespace sks {
 		}
 	}
 	
-	std::vector<uint8_t> socket::receive(size_t bufSize) {
+	std::vector<uint8_t> socket::receive(size_t bufSize, int flags) {
 		std::vector<uint8_t> buffer(bufSize);
-		ssize_t r = recv(m_sockFD, (char*)buffer.data(), buffer.size(), MSG_NOSIGNAL); //Flags of MSG_NOSIGNAL only for now, might open up later
-		if (r == -1) {
-			throw sysErr(errno);
-		}
-		buffer.resize(r); //These calls return the number of bytes received
+		size_t recvSize = receive(buffer.data(), buffer.size(), flags);
+		buffer.resize(recvSize);
 		return buffer;
 	}
-	std::vector<uint8_t> socket::receive(address& from, size_t bufSize) {
-		std::vector<uint8_t> buffer(bufSize);
-		sockaddr_storage sa;
-		socklen_t salen = sizeof(sa);
-		ssize_t r = recvfrom(m_sockFD, (char*)buffer.data(), buffer.size(), MSG_NOSIGNAL, (sockaddr*)&sa, &salen); //Flags of MSG_NOSIGNAL only for now, might open up later
+	size_t socket::receive(uint8_t* buf, size_t bufSize, int flags) {
+		ssize_t r = recv(m_sockFD, (char*)buf, bufSize, flags | MSG_NOSIGNAL);
 		if (r == -1) {
 			throw sysErr(errno);
 		}
-		buffer.resize(r); //These calls return the number of bytes received
-		from = address(sa, salen);
+		return r;
+	}
+	std::vector<uint8_t> socket::receive(address& from, size_t bufSize, int flags) {
+		std::vector<uint8_t> buffer(bufSize);
+		size_t recvSize = receive(from, buffer.data(), buffer.size(), flags);
+		buffer.resize(recvSize);
 		return buffer;
+	}
+	size_t socket::receive(address& from, uint8_t* buf, size_t bufSize, int flags) {
+		sockaddr_storage sa;
+		socklen_t salen = sizeof(sa);
+		ssize_t r = recvfrom(m_sockFD, (char*)buf, bufSize, flags | MSG_NOSIGNAL, (sockaddr*)&sa, &salen);
+		if (r == -1) {
+			throw sysErr(errno);
+		}
+		from = address(sa, salen);
+		return r;
 	}
 	
 	#ifdef __AS_POSIX__

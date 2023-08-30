@@ -78,10 +78,14 @@ namespace sks {
 		void connect(const address& address);
 		
 		//Critical usage functions
-		void send(const std::vector<uint8_t>& data);
-		void send(const std::vector<uint8_t>& data, const address& to);
-		std::vector<uint8_t> receive(size_t bufSize = 0x10000);
-		std::vector<uint8_t> receive(address& from, size_t bufSize = 0x10000);
+		void send(const std::vector<uint8_t>& data, int flags = 0);
+		void send(const uint8_t* data, size_t len, int flags = 0);
+		void send(const std::vector<uint8_t>& data, const address& to, int flags = 0);
+		void send(const uint8_t* data, size_t len, const address& to, int flags = 0);
+		std::vector<uint8_t> receive(size_t bufSize = 0x10000, int flags = 0);
+		size_t receive(uint8_t* buf, size_t bufSize, int flags = 0);
+		std::vector<uint8_t> receive(address& from, size_t bufSize = 0x10000, int flags = 0);
+		size_t receive(address& from, uint8_t* buf, size_t bufSize, int flags = 0);
 		
 		//Critical utility functions
 		void sendTimeout(std::chrono::microseconds timeout);
