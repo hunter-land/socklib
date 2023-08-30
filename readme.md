@@ -3,7 +3,7 @@
 ![Build Status](https://github.com/hunter-land/socklib/workflows/Build/badge.svg) ![Test Status](https://github.com/hunter-land/socklib/workflows/Test/badge.svg)
 
 ## About
-This library brings a modern C++ interface to sockets, simplifies their use, and doesn't remove any functionality.
+This library brings a modern C++ interface to sockets, simplifies their use, and keeps all functionality (feature parity) with C sockets.
 
 ### Features
 - Addresses can be constructed from formatted strings alone, no explicit `AF_*` argument required (in most cases[⁽¹⁾](#notes)).
@@ -11,7 +11,8 @@ This library brings a modern C++ interface to sockets, simplifies their use, and
 - Sockets are closed gracefully when deconstructed.
 - Send functions block until all data is sent.
 - Operating System agnostic[⁽²⁾](#notes)! (Windows and Linux explicitly maintained)
-- Supports limited casting/constructing to/from C structures
+- Supports casting/constructing to/from C structures.
+- Has feature parity with C sockets
 
 ## Setup
 This is an example of setup and setup options showing how to download, build, and install this library on your system of choice.
@@ -28,11 +29,12 @@ This library is built using `cmake` and at least one of [their supported generat
 
 2. Generate project files with CMake
     ```bash
-    cmake -S . -B ./build
+    cd socklib
+    cmake -S . -B build
     ```
 Additional optional arguments include:
-- `CMAKE_BUILD_TYPE` which can be set to `Release` (default) or `Debug` with the syntax `-DCMAKE_BUILD_TYPE=value`.
-- `BUILD_SHARED_LIBS` can be set to `ON` (default) to shared, or `OFF` for static using the same syntax.
+- `CMAKE_BUILD_TYPE` which can be set to `Release` (default) or `Debug` with `-DCMAKE_BUILD_TYPE=value`.
+- `BUILD_SHARED_LIBS` can be set to `ON` (default) for shared, or `OFF` for static.
 
 3. Build the generated project (This step varies based on your system and person configuration, below are only examples)
 	#### Linux
