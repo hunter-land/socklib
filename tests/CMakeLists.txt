@@ -1,16 +1,27 @@
-cmake_minimum_required(VERSION 3.18)
-project(socklib-tests VERSION 0.8.0 DESCRIPTION "Tests for the SocKetS library")
-set(CMAKE_CXX_STANDARD 11)
+cmake_minimum_required (VERSION 3.16.2)
+project (tests)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-include(GNUInstallDirs) #GNUInstallDirs (a default module) is required for this CMake
 
+set(INCLUDE_DIR "include") # Includes for testing
+set(SOURCE_DIR "src") # Sources for testing
 
+# Files
+set(SOURCE_FILES "${SOURCE_DIR}/main.cpp" "${SOURCE_DIR}/steps.cpp" "${SOURCE_DIR}/utility.cpp")
+set(HEADER_FILES "${INCLUDE_DIR}/steps.hpp" "${INCLUDE_DIR}/utility.hpp")
 
-# test is the target for unit testing
-add_executable(tests driver.cpp testing.cpp steps.cpp utility.cpp)
-# Link socks library
-find_library(socks NAMES socks HINTS "${CMAKE_INSTALL_LIBDIR}" REQUIRED)
+# Application
+add_executable( tests ${SOURCE_FILES} )
+target_include_directories( tests PRIVATE ${INCLUDE_DIR} )
+# Targets for testing
+set(TARGET_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include") # Include directory of target
+find_library(SOCKLIB NAMES socks REQUIRED)
 target_link_libraries(tests PRIVATE socks)
-# Test play both sides, it needs threads
+target_include_directories( tests PRIVATE ${TARGET_INCLUDE_DIR} )
+
+# Threads
 find_package(Threads REQUIRED)
 target_link_libraries(tests PRIVATE Threads::Threads)
+# Basic Test Framework
+find_library(BTFLIB NAMES btf REQUIRED)
+target_link_libraries(tests PRIVATE btf)

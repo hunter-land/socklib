@@ -14,6 +14,7 @@ option(BUILD_SHARED_LIBS "Build as a shared library" ON)
 if (NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release) #Build release or debug library
 endif()
+option(BUILD_TESTS "Build tests for library" OFF)
 
 # Set file variables
 set(SOURCE_FILES "${SOURCE_DIR}/socks.cpp" "${SOURCE_DIR}/addrs.cpp" "${SOURCE_DIR}/errors.cpp" "${SOURCE_DIR}/initialization.cpp")
@@ -37,6 +38,7 @@ install(
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/socks"
 )
 
-# Set CMake variables so this can be used as a sub-project
-set(${PROJECT_NAME}_INCLUE_DIRS ${INCLUDE_DIR} CACHE INTERNAL "${PROJECT_NAME}: Include Directories" FORCE)
-#set(${PROJECT_NAME}_LIBRARIES ${INCLUDE_DIR} CACHE INTERNAL "${PROJECT_NAME}: Include Directories" FORCE)
+# Tests
+if (${BUILD_TESTS})
+	add_subdirectory(tests)
+endif()
