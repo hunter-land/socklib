@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
 	};
 
 	//Print info before run starts
-	btf::preRun = [&]() -> void{
+	btf::preRun = [](std::vector<btf::test> testsToRun, size_t threadCount) -> void{
 		std::cout << "Testing socklib " << sks::version.major << "." << sks::version.minor << "." << sks::version.build << std::endl;
 		std::cout << std::endl;
 	};
