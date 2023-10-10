@@ -6,12 +6,15 @@
 #include <mutex>
 #include <thread>
 
-void givenSystemSupports(std::ostream& log, sks::domain d, sks::type t) {
+void assertSystemSupports(std::ostream& log, sks::domain d, sks::type t) {
 	try {
 		sks::socket(d, t);
 	} catch (std::exception& e) {
 		assert(btf::ignore, "System does not support " + str(d) + " " + str(t));
 	}
+}
+void givenSystemSupports(std::ostream& log, sks::domain d, sks::type t) {
+	return assertSystemSupports(log, d, t);
 }
 
 std::pair<sks::socket, sks::socket> getRelatedSockets(std::ostream& log, sks::domain d, sks::type t) {

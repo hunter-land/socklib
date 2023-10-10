@@ -1,6 +1,8 @@
 #include "utility.hpp"
 #include "socks.hpp"
 #include <string>
+#include <sstream>
+#include <thread>
 
 std::string str(sks::domain d) {
 	switch (d) {
@@ -40,7 +42,9 @@ sks::address bindableAddress(sks::domain d, uint8_t index) {
 			return sks::address("[::1]:0", d);
 		case sks::unix:
 			{
-				std::string unixAddressPath = "testing." + std::to_string(index) + ".unix";
+				std::stringstream ss;
+				ss << std::this_thread::get_id();
+				std::string unixAddressPath = "testing." + ss.str() + std::to_string(index) + ".unix";
 				return sks::address(unixAddressPath, d);
 			}
 	}

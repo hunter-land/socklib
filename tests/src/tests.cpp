@@ -5,177 +5,83 @@
 #include <mutex>
 #include <memory>
 #include <thread>
+#include <future>
 
 void socketsSendAndReceive(std::ostream& log, sks::domain d, sks::type t) {
-	givenSystemSupports(log, d, t);
+	assertSystemSupports(log, d, t);
 
-	///Test setup/variables///
-	std::mutex logMutex;
-	std::pair<std::unique_ptr<sks::address>, std::unique_ptr<sks::address>> serverAddress = { nullptr, nullptr };
-	std::pair<std::unique_ptr<sks::address>, std::unique_ptr<sks::address>> clientAddress = { nullptr, nullptr };
-	std::pair<std::string, std::string> hostsMessage = { "You have reached the server.", "" };
-	std::pair<std::string, std::string> clientsMessage = { "Hey server, just saying hello!", "" };
-	std::exception_ptr except; //If either thread finds an exception, set this to the exception, exit threads, and throw it
+	std::string serversMessage = "You have reached the server.";
+	std::string clientsMessage = "Hey server, just saying hello!";
+	std::vector<uint8_t> serversMessageBytes(serversMessage.begin(), serversMessage.end());
+	std::vector<uint8_t> clientsMessageBytes(clientsMessage.begin(), clientsMessage.end());
 
-	///The test///
+	//Two paths - One for connected types, and one for unconnected types
 	if (t == sks::stream || t == sks::seq) {
-		//Connected types
-		std::thread serverThread([&]{
-			try {
-				sks::socket listener(d, t, 0);
-				//Bind to localhost (intra-system address) with random port assigned by OS
-				listener.bind(bindableAddress(d));
-				logMutex.lock();
-				log << "Acting Server bound to " << listener.localAddress().name() << std::endl;
-				logMutex.unlock();
+		//Connected type
 
-				//Listen
-				listener.listen();
-				logMutex.lock();
-				log << "Acting Server is listening" << std::endl;
-				logMutex.unlock();
-				serverAddress.first = std::unique_ptr<sks::address>(new sks::address(listener.localAddress()));
+		//Server-side setup
+		sks::socket listener(d, t);
+		log << "Binding listener" << std::endl;
+		listener.bind(bindableAddress(d));
+		log << "Bound to " << listener.localAddress().name() << std::endl;
+		listener.listen();
+		log << "Listener is listening" << std::endl;
+		auto acceptedFuture = std::async(std::launch::async, &sks::socket::accept, &listener); //Accept the next connection (wait in worker thread)
 
-				//Accept a connection
-				sks::socket client = listener.accept();
-				clientAddress.second = std::unique_ptr<sks::address>(new sks::address(client.connectedAddress()));
-				logMutex.lock();
-				log << "Acting Client connected from " << client.connectedAddress().name() << std::endl;
-				logMutex.unlock();
+		//Switch to client-side
+		sks::socket client(d, t);
+		log << "Connecting to listener" << std::endl;
+		client.connect(listener.localAddress());
+		log << "Client connected, sending client's message" << std::endl;
+		client.send(clientsMessageBytes);
 
+		//Switch back to server-side
+		sks::socket accepted = acceptedFuture.get();
+		log << "Sending server's message" << std::endl;
+		accepted.send(serversMessageBytes);
+		std::vector<uint8_t> clientsMessageBytesReceived = accepted.receive();
+		std::string clientsMessageReceived(clientsMessageBytesReceived.begin(), clientsMessageBytesReceived.end());
+		assertEqual(clientsMessageReceived, clientsMessage, "Message recevied from client got mangled");
 
-
-				//Receive a message from the client
-				std::vector<uint8_t> clientMessageData = client.receive(); //Get the message as a vector of bytes
-				clientsMessage.second = std::string(clientMessageData.begin(), clientMessageData.end()); //We know the message is a string so we create a string out of it
-				logMutex.lock();
-				log << "Acting Client said \"" << clientsMessage.second << "\" to Acting Server" << std::endl; //Display the string
-				logMutex.unlock();
-
-				//Send a message to the client
-				std::vector<uint8_t> messageData(hostsMessage.first.begin(), hostsMessage.first.end()); //Convert the string into vector of bytes
-				client.send(messageData); //Send the message to the client
-				logMutex.lock();
-				log << "Acting Server sent \"" << hostsMessage.first << "\" to Acting Client" << std::endl;
-				logMutex.unlock();
-			} catch (...) {
-				except = std::current_exception();
-			}
-		});
-		std::thread clientThread([&]{
-			try {
-				//Set up socket
-				sks::socket server(d, t, 0);
-				//Wait for host thread to be ready for us
-				while (serverAddress.first == nullptr) {
-					std::this_thread::sleep_for(std::chrono::milliseconds(100));
-				}
-				server.connect(*serverAddress.first); //Establish connection
-				serverAddress.second = std::unique_ptr<sks::address>(new sks::address(server.connectedAddress()));
-				clientAddress.first = std::unique_ptr<sks::address>(new sks::address(server.localAddress()));
-				logMutex.lock();
-				log << "Acting Client " << server.localAddress().name() << " connected to Acting Server " << server.connectedAddress().name() << std::endl;
-				logMutex.unlock();
-
-
-
-				//Send a message to the server
-				std::vector<uint8_t> messageData(clientsMessage.first.begin(), clientsMessage.first.end()); //Convert string into vector of bytes
-				server.send(messageData); //Send the message to the server
-				logMutex.lock();
-				log << "Acting Client sent \"" << clientsMessage.first << "\" to Acting Server" << std::endl;
-				logMutex.unlock();
-
-				//Receive a message from the server
-				std::vector<uint8_t> serverMessageData = server.receive(); //Get the message as a vector of bytes
-				hostsMessage.second = std::string(serverMessageData.begin(), serverMessageData.end()); //We know the message is a string so we create a string out of it
-				logMutex.lock();
-				log << "Acting Server said \"" << hostsMessage.second << "\" to Acting Client" << std::endl; //Display the string
-				logMutex.unlock();
-			} catch (...) {
-				except = std::current_exception();
-			}
-		});
-
-		serverThread.join();
-		clientThread.join();
+		//Switch back to client-side
+		std::vector<uint8_t> serversMessageBytesReceived = client.receive();
+		std::string serversMessageReceived(serversMessageBytesReceived.begin(), serversMessageBytesReceived.end());
+		assertEqual(serversMessageReceived, serversMessage, "Message recevied from server got mangled");
 	} else {
-		//Non-connected types
-		std::thread serverThread([&]{
-			try {
-				sks::socket client(d, t, 0);
-				//Bind to localhost (intra-system address) with random port assigned by OS
-				client.bind(bindableAddress(d));
-				serverAddress.first = std::unique_ptr<sks::address>(new sks::address(client.localAddress()));
-				logMutex.lock();
-				log << "Acting Server bound to " << client.localAddress().name() << std::endl;
-				logMutex.unlock();
+		//Non-connected type
 
-				//Receive a message from the client
-				clientAddress.second = std::unique_ptr<sks::address>(new sks::address(sks::IPv4Address()));
-				std::vector<uint8_t> clientMessageData = client.receive(*clientAddress.second); //Get the message as a vector of bytes
-				clientsMessage.second = std::string(clientMessageData.begin(), clientMessageData.end()); //We know the message is a string so we create a string out of it
-				logMutex.lock();
-				log << "Acting Client (" << clientAddress.second->name() << ") said \"" << clientsMessage.second << "\" to Acting Server" << std::endl; //Display the string
-				logMutex.unlock();
+		//Server-side setup
+		sks::socket server(d, t);
+		log << "Binding server socket" << std::endl;
+		server.bind(bindableAddress(d, 0));
+		sks::address serverAddr = server.localAddress();
+		log << "Server bound to " << serverAddr.name() << std::endl;
 
-				//Send a message to the client
-				std::vector<uint8_t> messageData(hostsMessage.first.begin(), hostsMessage.first.end()); //Convert the string into vector of bytes
-				client.send(messageData, *clientAddress.second); //Send the message to the client
-				logMutex.lock();
-				log << "Acting Server sent \"" << hostsMessage.first << "\" to Acting Client" << std::endl;
-				logMutex.unlock();
-			} catch (...) {
-				except = std::current_exception();
-			}
-		});
-		std::thread clientThread([&]{
-			try {
-				//Set up socket
-				sks::socket server(d, t, 0);
-				//Bind to localhost (intra-system address) with random port assigned by OS
-				server.bind(bindableAddress(d));
-				clientAddress.first = std::unique_ptr<sks::address>(new sks::address(server.localAddress()));
-				logMutex.lock();
-				log << "Acting Client bound to " << server.localAddress().name() << std::endl;
-				logMutex.unlock();
+		//Switch to client-side
+		sks::socket client(d, t);
+		log << "Binding client socket" << std::endl;
+		client.bind(bindableAddress(d, 1));
+		sks::address clientAddr = client.localAddress();
+		log << "Client bound to " << clientAddr.name() << std::endl;
+		client.send(clientsMessageBytes, serverAddr);
+		log << "Client sent message to server" << std::endl;
 
-				//Wait for host thread to be ready for us
-				while (serverAddress.first == nullptr) {
-					std::this_thread::sleep_for(std::chrono::milliseconds(100));
-				}
-				//Send a message to the server
-				std::vector<uint8_t> messageData(clientsMessage.first.begin(), clientsMessage.first.end()); //Convert string into vector of bytes
-				server.send(messageData, *serverAddress.first); //Send the message to the server
-				logMutex.lock();
-				log << "Acting Client sent \"" << clientsMessage.first << "\" to Acting Server" << std::endl;
-				logMutex.unlock();
+		//Switch back to server-side
+		sks::address clientAddrReceived("127.0.0.1");
+		std::vector<uint8_t> clientsMessageBytesReceived = server.receive(clientAddrReceived);
+		std::string clientsMessageReceived(clientsMessageBytesReceived.begin(), clientsMessageBytesReceived.end());
+		assertEqual(clientAddrReceived, clientAddr, "Message received from client came from a different address");
+		assertEqual(clientsMessageReceived, clientsMessage, "Message recevied from client got mangled");
+		server.send(serversMessageBytes, clientAddr);
+		log << "Server sent message to client" << std::endl;
 
-				//Receive a message from the server
-				serverAddress.second = std::unique_ptr<sks::address>(new sks::address("0.0.0.0"));
-				std::vector<uint8_t> serverMessageData = server.receive(*serverAddress.second); //Get the message as a vector of bytes
-				hostsMessage.second = std::string(serverMessageData.begin(), serverMessageData.end()); //We know the message is a string so we create a string out of it
-				logMutex.lock();
-				log << "Acting Server (" << serverAddress.second->name() << ") said \"" << hostsMessage.second << "\" to Acting Client" << std::endl; //Display the string
-				logMutex.unlock();
-			} catch (...) {
-				except = std::current_exception();
-			}
-		});
-
-		serverThread.join();
-		clientThread.join();
+		//Switch back to client-side
+		sks::address serverAddrReceived("127.0.0.1");
+		std::vector<uint8_t> serversMessageBytesReceived = client.receive(serverAddrReceived);
+		std::string serversMessageReceived(serversMessageBytesReceived.begin(), serversMessageBytesReceived.end());
+		assertEqual(serverAddrReceived, serverAddr, "Message received from server came from a different address");
+		assertEqual(serversMessageReceived, serversMessage, "Message recevied from server got mangled");
 	}
-
-	if (except) {
-		//Re-throw up to test manager
-		std::rethrow_exception(except);
-	}
-
-	assertEqual(*clientAddress.first, *clientAddress.second, "Client's local address differs from host's remote address");
-	assertEqual(*serverAddress.first, *serverAddress.second, "Host's local address differs from client's remote address");
-	assertEqual(hostsMessage.first, hostsMessage.second, "Hosts's message was not correctly received by client");
-	assertEqual(clientsMessage.first, clientsMessage.second, "Client's message was not correctly received by host");
 }
 
 void addressesMatchCEquivalents(std::ostream& log, sks::domain d) {
