@@ -7,7 +7,7 @@
 #include <thread>
 #include <future>
 
-void socketsSendAndReceive(std::ostream& log, sks::domain d, sks::type t) {
+void socketsSendAndReceive(std::ostream& log, const sks::domain& d, const sks::type& t) {
 	assertSystemSupports(log, d, t);
 
 	std::string serversMessage = "You have reached the server.";
@@ -18,7 +18,7 @@ void socketsSendAndReceive(std::ostream& log, sks::domain d, sks::type t) {
 	socketCanSendDataToSocket(log, socks.second, socks.first, clientsMessage, t);
 }
 
-void addressesMatchCEquivalents(std::ostream& log, sks::domain d) {
+void addressesMatchCEquivalents(std::ostream& log, const sks::domain& d) {
 	///Prerequisites to this test (throw results unable to meet requirement)///
 	//Not any yet, since address don't need support on the hardware, just the right headers (which if we got here, we have)
 
@@ -55,7 +55,7 @@ void addressesMatchCEquivalents(std::ostream& log, sks::domain d) {
 	assertEqual(addrFromC, addrOrig, "Addresses do not match after casting to and from sockaddr struct");
 }
 
-void socketPairsCanBeCreated(std::ostream& log, sks::type t) {
+void socketPairsCanBeCreated(std::ostream& log, const sks::type& t) {
 	///Prerequisites to this test (throw results unable to meet requirement)///
 	assertSystemSupports(log, sks::unix, t);
 
@@ -74,8 +74,7 @@ void socketPairsCanBeCreated(std::ostream& log, sks::type t) {
 	socketCanSendDataToSocket(log, b, a, "Message from first socket to second", sks::stream);
 }
 
-void readReadyTimesOutCorrectly(std::ostream& log, sks::domain d, sks::type t, std::chrono::milliseconds timeout) {
-	///Prerequisites to this test (throw results unable to meet requirement)///
+void readReadyTimesOutCorrectly(std::ostream& log, const sks::domain& d, const sks::type& t, const std::chrono::milliseconds& timeout) {
 	assertSystemSupports(log, d, t);
 
 	std::chrono::milliseconds timeoutGrace(10); //Allow 10ms extra for timeout (Code isn't instant, and the OS will get to our call when it gets to it)
