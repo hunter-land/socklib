@@ -1,11 +1,11 @@
 #include <iostream>
 #include "socks.hpp"
 #include <btf/driver.hpp>
-#include <btf/testPermutations.hpp>
+#include <btf/permutations.hpp>
 #include "tests.cpp"
 #include <filesystem>
 
-#include <btf/stringLookup.hpp>
+#include <btf/stringConversions.hpp>
 #include "utility.hpp"
 
 int main(int argc, char** argv) {
