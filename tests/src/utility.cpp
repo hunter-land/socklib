@@ -4,7 +4,7 @@
 #include <sstream>
 #include <thread>
 
-std::string str(sks::domain d) {
+std::string str(const sks::domain& d) {
 	switch (d) {
 		case sks::IPv4:
 			return "IPv4";
@@ -17,7 +17,7 @@ std::string str(sks::domain d) {
 	}
 }
 
-std::string str(sks::type t) {
+std::string str(const sks::type& t) {
 	switch (t) {
 		case sks::stream:
 			return "stream";
@@ -32,6 +32,10 @@ std::string str(sks::type t) {
 		default:
 			throw std::logic_error("UNKNOWN TYPE (" + std::to_string(t) + ")");
 	}
+}
+
+std::string str(const std::chrono::milliseconds& ms) {
+	return std::to_string(ms.count()) + "ms";
 }
 
 sks::address bindableAddress(sks::domain d, uint8_t index) {

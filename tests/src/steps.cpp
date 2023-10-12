@@ -5,6 +5,7 @@
 #include "utility.hpp"
 #include <mutex>
 #include <thread>
+#include <future>
 
 void assertSystemSupports(std::ostream& log, sks::domain d, sks::type t) {
 	try {
@@ -13,93 +14,59 @@ void assertSystemSupports(std::ostream& log, sks::domain d, sks::type t) {
 		assert(btf::ignore, "System does not support " + str(d) + " " + str(t));
 	}
 }
-void givenSystemSupports(std::ostream& log, sks::domain d, sks::type t) {
-	return assertSystemSupports(log, d, t);
-}
 
 std::pair<sks::socket, sks::socket> getRelatedSockets(std::ostream& log, sks::domain d, sks::type t) {
-	//Generate and connect (if applicable) two sockets
-	std::mutex logMutex;
-	bool accepterReady = false;
-	std::pair<sks::socket*, sks::socket*> pair;
-	sks::address listeningAddr("0.0.0.0");
-	std::exception_ptr except; //If either thread finds an exception, set this to the exception, exit threads, and throw it
+	//Two paths - One for connected types, and one for unconnected types
+	if (t == sks::stream || t == sks::seq) {
+		//Connected type
+
+		//Server-side setup
+		sks::socket listener(d, t);
+		log << "Binding listener" << std::endl;
+		listener.bind(bindableAddress(d));
+		log << "Bound to " << listener.localAddress().name() << std::endl;
+		listener.listen();
+		log << "Listener is listening" << std::endl;
+		auto acceptedFuture = std::async(std::launch::async, &sks::socket::accept, &listener); //Accept the next connection (wait in worker thread)
+
+		//Switch to client-side
+		sks::socket client(d, t);
+		log << "Connecting to listener" << std::endl;
+		client.connect(listener.localAddress());
+		log << "Client connected to listener" << std::endl;
+
+		//Switch back to server-side
+		sks::socket accepted = acceptedFuture.get();
+		return { std::move(client), std::move(accepted) };
+	} else {
+		sks::socket sockA(d, t);
+		sockA.bind(bindableAddress(d, 0));
+		log << "Binding socket A" << std::endl;
+		sks::socket sockB(d, t);
+		sockB.bind(bindableAddress(d, 1));
+		log << "Binding socket B" << std::endl;
+		return { std::move(sockA), std::move(sockB) };
+	}
+}
+
+void socketCanSendDataToSocket(std::ostream& log, sks::socket& sender, sks::socket& receiver, const std::string& message, sks::type t) {
+	std::vector<uint8_t> messageBytes(message.begin(), message.end());
+	std::vector<uint8_t> messageBytesReceived;
 
 	if (t == sks::stream || t == sks::seq) {
-		//Connected types
-		std::thread serverThread([&]{
-			try {
-				sks::socket listener(d, t, 0);
-				//Bind to localhost (intra-system address) with random port assigned by OS
-				listener.bind(bindableAddress(d));
-				logMutex.lock();
-				log << "Acting Server bound to " << listener.localAddress().name() << std::endl;
-				logMutex.unlock();
-
-				//Listen
-				listener.listen();
-				logMutex.lock();
-				log << "Acting Server is listening" << std::endl;
-				logMutex.unlock();
-				accepterReady = true;
-				listeningAddr = listener.localAddress();
-
-				//Accept a connection
-				sks::socket client = listener.accept();
-				//clientAddress.second = new sks::address(client.connectedAddress());
-				logMutex.lock();
-				log << "Acting Client connected from " << client.connectedAddress().name() << std::endl;
-				logMutex.unlock();
-
-				sks::socket* cliHeap = new sks::socket(std::move(client));
-				pair.first = cliHeap;
-			} catch (...) {
-				if (except == nullptr) {
-					except = std::current_exception();
-				}
-			}
-		});
-
-		std::thread clientThread([&]{
-			try {
-				//Set up socket
-				sks::socket server(d, t, 0);
-				//Wait for host thread to be ready for us
-				while (!accepterReady) {
-					std::this_thread::sleep_for(std::chrono::milliseconds(100));
-				}
-				server.connect(listeningAddr); //Establish connection
-				logMutex.lock();
-				log << "Acting Client " << server.localAddress().name() << " connected to Acting Server " << server.connectedAddress().name() << std::endl;
-				logMutex.unlock();
-
-				//Connected, set structure variables
-				sks::socket* serHeap = new sks::socket(std::move(server));
-				pair.second = serHeap;
-			} catch (...) {
-				if (except == nullptr) {
-					except = std::current_exception();
-				}
-			}
-		});
-
-		serverThread.join();
-		clientThread.join();
+		sender.send(messageBytes);
+		log << "Sent message" << std::endl;
+		messageBytesReceived = receiver.receive();
+		log << "Received message" << std::endl;
 	} else {
-		//Non-connected types
-		sks::socket socketA(d, t);
-		socketA.bind(bindableAddress(d, 0));
-		pair.first = new sks::socket(std::move(socketA));
-
-		sks::socket socketB(d, t);
-		socketB.bind(bindableAddress(d, 1));
-		pair.second = new sks::socket(std::move(socketB));
+		sender.send(messageBytes, receiver.localAddress());
+		log << "Sent message" << std::endl;
+		sks::address receivedFromAddr;
+		messageBytesReceived = receiver.receive(receivedFromAddr);
+		log << "Received message" << std::endl;
+		assertEqual(sender.localAddress(), receivedFromAddr, "Socket received data from wrong address");
 	}
 
-	if (except) {
-		//Re-throw up to test manager
-		std::rethrow_exception(except);
-	}
-
-	return {sks::socket(std::move(*pair.first)), sks::socket(std::move(*pair.second))};
+	std::string messageReceived(messageBytesReceived.begin(), messageBytesReceived.end());
+	assertEqual(messageReceived, message, "Received message differs from sent message");
 }
