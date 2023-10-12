@@ -30,45 +30,65 @@ extern "C" {
 
 namespace sks {
 
+	address::address() {
+		m_domain = (domain)0xFF; //Set to invalid domain
+	}
 	address::address(const std::string& addrstr, domain d) {
 		//If we are not given a specific domain to check, try to parse as: IPv6, IPv4
+		m_domain = d;
 		switch (d) {
 			case IPv4:
-				m_addresses.IPv4 = new IPv4Address(addrstr);
-				m_domain = IPv4;
+				{
+					IPv4Address addr(addrstr);
+					m_addresses.IPv4 = new IPv4Address(addr);
+				}
 				break;
 			case IPv6:
-				m_addresses.IPv6 = new IPv6Address(addrstr);
-				m_domain = IPv6;
+				{
+					IPv6Address addr(addrstr);
+					m_addresses.IPv6 = new IPv6Address(addr);
+				}
 				break;
 			case unix:
-				m_addresses.unix = new unixAddress(addrstr);
-				m_domain = unix;
+				{
+					unixAddress addr(addrstr);
+					m_addresses.unix = new unixAddress(addr);
+				}
 				break;
 			#ifdef has_ax25
 				case ax25:
-					m_addresses.ax25 = new ax25Address(addrstr);
-					m_domain = ax25;
+					{
+						ax25Address addr(addrstr);
+						m_addresses.ax25 = new ax25Address(addr);
+					}
 					break;
 			#endif
+
 			default: //No/unknown domain given, do guess-and-check address resolving
+				//Try to resolve as an IPv6
 				try {
-					m_addresses.IPv6 = new IPv6Address(addrstr);
+					IPv6Address addr(addrstr);
+					m_addresses.IPv6 = new IPv6Address(addr);
 					m_domain = IPv6;
 					break;
 				} catch (const std::exception& e) {} //Do nothing, just try the next one
+				//Try to resolve as an IPv4
 				try {
-					m_addresses.IPv4 = new IPv4Address(addrstr);
+					IPv4Address addr(addrstr);
+					m_addresses.IPv4 = new IPv4Address(addr);
 					m_domain = IPv4;
 					break;
 				} catch (const std::exception& e) {}
 				#ifdef has_ax25
+					//Try to resolve as an ax25
 					try {
-						m_addresses.ax25 = new ax25Address(addrstr);
+						ax25Address addr(addrstr);
+						m_addresses.ax25 = new ax25Address(addr);
 						m_domain = ax25;
 						break;
 					} catch (const std::exception& e) {}
 				#endif
+				//Give up
 				throw std::runtime_error("Could not parse string to address. You may need to specify domain.");
 		}
 	}

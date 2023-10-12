@@ -67,6 +67,7 @@ namespace sks {
 			addressBase* base = nullptr;
 		} m_addresses;
 	public:
+		address();
 		address(const std::string& addrstr, domain d = (domain)0);
 		address(const sockaddr_storage& from, socklen_t len);
 		address(const addressBase& addr); //Construct from any specific sub-type OR similar type

@@ -34,19 +34,24 @@ namespace sks {
 		broadcast = SO_BROADCAST,
 		reuseAddr = SO_REUSEADDR,
 		keepAlive = SO_KEEPALIVE,
-		OOBInLine = SO_OOBINLINE,
+
+		outOfBandInLine = SO_OOBINLINE,
 		dontRoute = SO_DONTROUTE,
 	};
 	enum intOption {
 		sendBufferSize = SO_SNDBUF,
 		receiveBufferSize = SO_RCVBUF,
+		receiveLowWaterMark = SO_RCVLOWAT,
+		sendLowWaterMark = SO_SNDLOWAT,
 	};
 	enum optionLevel {
 		socketLevel = SOL_SOCKET,
 	};
 	//Unique option types
 	//SO_LINGER (linger struct)
-		
+	//SO_RCVTIMEO use receiveTimeout(...)
+	//SO_SNDTIMEO use sendTimeout(...)
+
 	class socket {
 	protected:
 		bool m_validFD = false; //this is used for move constructor and deconstruction, otherwise we risk closing a different file descriptor unexpectedly.
@@ -54,7 +59,7 @@ namespace sks {
 		domain m_domain; //domain this socket is operating on, cannot be switched (assigned at construction)
 		type m_type; //type of socket this is, cannot be switched (assigned at construction)
 		int m_protocol; //specific protocol of this socket, cannot be switched (assigned at construction)
-		
+
 		socket(int sockFD, domain d, type t, int protocol);
 		friend std::pair<socket, socket> createUnixPair(type t, int protocol);
 		friend std::vector<std::reference_wrapper<socket>> writeReadySockets(std::vector<std::reference_wrapper<socket>>& sockets, std::chrono::milliseconds timeout);
@@ -64,7 +69,7 @@ namespace sks {
 		socket(const socket& s) = delete; //socket cannot be construction-copied
 		socket(socket&& s); //socket can be construction-moved
 		~socket();
-		
+
 		socket& operator=(const socket& s) = delete; //socket cannot be assignment-copied
 		socket& operator=(socket&& s); //socket can be assignment-moved (provides ability to use std::swap)
 
@@ -76,7 +81,7 @@ namespace sks {
 		void listen(int backlog = 0xFF);
 		socket accept();
 		void connect(const address& address);
-		
+
 		//Critical usage functions
 		void send(const std::vector<uint8_t>& data, int flags = 0);
 		void send(const uint8_t* data, size_t len, int flags = 0);
@@ -86,7 +91,7 @@ namespace sks {
 		size_t receive(uint8_t* buf, size_t bufSize, int flags = 0);
 		std::vector<uint8_t> receive(address& from, size_t bufSize = 0x10000, int flags = 0);
 		size_t receive(address& from, uint8_t* buf, size_t bufSize, int flags = 0);
-		
+
 		//Critical utility functions
 		void sendTimeout(std::chrono::microseconds timeout);
 		std::chrono::microseconds sendTimeout() const;
@@ -102,17 +107,20 @@ namespace sks {
 		void socketOption(intOption option, int value, optionLevel level = socketLevel);
 		int socketOption(intOption option, optionLevel level = socketLevel) const;
 
-		
 		//Important utility functions
 		//bool connected();
 		address connectedAddress() const;
 		address localAddress() const;
+
+		//Compatibility functions
+		int socketFD(bool takeOwnership = false);
+		int socketFD() const; //Equivalent to socketFD(false)
 	};
-	
+
 	std::pair<socket, socket> createUnixPair(type t, int protocol = 0);
 
 	//readReady and writeReady for a group of sockets.
 	std::vector<std::reference_wrapper<socket>> writeReadySockets(std::vector<std::reference_wrapper<socket>>& sockets, std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
 	std::vector<std::reference_wrapper<socket>> readReadySockets(std::vector<std::reference_wrapper<socket>>& sockets, std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
-	
+
 };

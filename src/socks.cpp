@@ -472,51 +472,59 @@ namespace sks {
 		return address(sa, salen);
 	}
 
+	int socket::socketFD(bool takeOwnership) {
+		if (takeOwnership) {
+			m_validFD = false; //We have lost ownership. Do not do anything with socket when deconstructing
+		}
+		return m_sockFD;
+	}
+	int socket::socketFD() const {
+		return m_sockFD;
+	}
 
 
-#ifdef __AS_POSIX__
+
 	std::pair<socket, socket> createUnixPair(type t, int protocol) {
 		const domain d = unix;
-		//Create two sockets with given params
-		int FDs[2];
-		int e = socketpair(d, t, protocol, FDs);
-		if (e == -1) {
-			throw sysErr(errno);
-		}
-		//We have two socket file descriptors, wrap into classes then put into return pair
-		return std::pair<socket, socket>{ socket(FDs[0], d, t, protocol), socket(FDs[1], d, t, protocol) };
-	}
-#else
-	std::pair<socket, socket> createUnixPair(type t, int protocol) {
-		//Windows special, windows no fork, windows require workaround for same function
-		//windows may not even need, but windows gets
-		/*char* tempname = _mktemp("unix-XXXXXXXXXXXX"); //12 chars random + ".unix" + '\0'
-		char tmpDir[MAX_PATH];
-		int r = GetTempPathA(MAX_PATH, tmpDir);
-		if (r != 0) {
-			//Issues getting temp path
-		}
-		char tmpFile[MAX_PATH];
-		LPSTR r2 = PathCombineA(tmpFile, tmpDir, tempname);
-		if (r2 != tmpFile) {
-			//Issues combining paths
-		}
+		#ifdef __AS_POSIX__
+			//Create two sockets with given params
+			int FDs[2];
+			int e = socketpair(d, t, protocol, FDs); //Technically, there could be some system that allows more than just unix sockets, but its unlikely and not particularly hard to DIY
+			if (e == -1) {
+				throw sysErr(errno);
+			}
+			//We have two socket file descriptors, wrap into classes then put into return pair
+			return std::pair<socket, socket>{ socket(FDs[0], d, t, protocol), socket(FDs[1], d, t, protocol) };
+		#else
+			//Windows special, windows no fork, windows require workaround for same function
+			//windows may not even need, but windows gets
+			/*char* tempname = _mktemp("unix-XXXXXXXXXXXX"); //12 chars random + ".unix" + '\0'
+			char tmpDir[MAX_PATH];
+			int r = GetTempPathA(MAX_PATH, tmpDir);
+			if (r != 0) {
+				//Issues getting temp path
+			}
+			char tmpFile[MAX_PATH];
+			LPSTR r2 = PathCombineA(tmpFile, tmpDir, tempname);
+			if (r2 != tmpFile) {
+				//Issues combining paths
+			}
 
-		std::string listenerFile = tmpFile;
-		sks::unixAddress listenerAddress(listenerFile);
+			std::string listenerFile = tmpFile;
+			sks::unixAddress listenerAddress(listenerFile);
 
-		//We now have a temp file we can bind a unix socket to
-		socket listener(unix, t, protocol);
-		listener.bind(listenerAddress);
-		u_long nonblock = 1;
-		r = ioctlsocket(listener.m_sockFD, FIONBIO, &nonblock);
-		if (r != 0) {
-			//Couln't set non-blocking
-		}
-		listener.listen(1);*/
-		throw std::runtime_error("createUnixPair is not implemented for windows systems.");
+			//We now have a temp file we can bind a unix socket to
+			socket listener(unix, t, protocol);
+			listener.bind(listenerAddress);
+			u_long nonblock = 1;
+			r = ioctlsocket(listener.m_sockFD, FIONBIO, &nonblock);
+			if (r != 0) {
+				//Couln't set non-blocking
+			}
+			listener.listen(1);*/
+			throw std::runtime_error("createUnixPair is not implemented for windows systems.");
+		#endif
 	}
-#endif
 
 	std::vector<std::reference_wrapper<socket>> writeReadySockets(std::vector<std::reference_wrapper<socket>>& sockets, std::chrono::milliseconds timeout) {
 		std::vector<pollfd> pollstructs;
