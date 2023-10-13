@@ -7,6 +7,8 @@
 #include <thread>
 #include <future>
 
+static const std::chrono::milliseconds timeoutGrace(10); //Allow 10ms extra for timeouts (Code isn't instant, and the OS will get to our call when it gets to it)
+
 void socketsSendAndReceive(std::ostream& log, const sks::domain& d, const sks::type& t) {
 	assertSystemSupports(log, d, t);
 
@@ -77,9 +79,6 @@ void socketPairsCanBeCreated(std::ostream& log, const sks::type& t) {
 void readReadyTimesOutCorrectly(std::ostream& log, const sks::domain& d, const sks::type& t, const std::chrono::milliseconds& timeout) {
 	assertSystemSupports(log, d, t);
 
-	std::chrono::milliseconds timeoutGrace(10); //Allow 10ms extra for timeout (Code isn't instant, and the OS will get to our call when it gets to it)
-	//Regardless of boolean returned, if readReady(...) takes too long (T + 10ms), fail the test
-
 	auto sockets = getRelatedSockets(log, d, t);
 	sks::socket& sockA = sockets.first;
 	sks::socket& sockB = sockets.second;
@@ -115,4 +114,101 @@ void readReadyTimesOutCorrectly(std::ostream& log, const sks::domain& d, const s
 	timeDiff = postTimeoutTime - preTimeoutTime;
 	assertTrue(rr, "readReady returned false when there was data");
 	assertTrue(timeDiff < timeoutGrace, "readReady() took longer than grace period to return");
+}
+
+void bytesReadyCorrectCount(std::ostream& log, const sks::domain& d, const sks::type& t) {
+	assertSystemSupports(log, d, t);
+
+	std::pair<sks::socket, sks::socket> sockPair = getRelatedSockets(log, d, t);
+	std::vector<uint8_t> dataToSend = {'C', 'h', 'e', 'c', 'k'};
+	sks::socket& sockA = sockPair.first;
+	sks::socket& sockB = sockPair.second;
+	size_t br;
+
+	br = sockA.bytesReady();
+	assertEqual(br, 0, "bytesReady returned non-zero before any data was sent");
+
+	log << "Sending data (" << dataToSend.size() << " bytes) to socket" << std::endl;
+	if (t == sks::stream || t == sks::seq) {
+		sockB.send(dataToSend);
+	} else {
+		sockB.send(dataToSend, sockA.localAddress());
+	}
+
+	br = sockA.bytesReady();
+	assertEqual(br, dataToSend.size(), "bytesReady returned an incorrect byte count");
+
+	log << "Receiving (reading) data from buffer" << std::endl;
+	if (t == sks::stream || t == sks::seq) {
+		sockA.receive();
+	} else {
+		sks::address addr;
+		sockA.receive(addr);
+	}
+
+	br = sockA.bytesReady();
+	assertEqual(br, 0, "bytesReady returned non-zero after reading all data");
+}
+
+void receiveTimesOutCorrectly(std::ostream& log, const sks::domain& d, const sks::type& t, const std::chrono::milliseconds& timeout) {
+	assertSystemSupports(log, d, t);
+	if (timeout.count() == 0) {
+		//timeout of 0 is "do not time out". This will cause the test below to hang when we expect it to time out
+		assert(btf::ignore, "Timeout of 0ms invalid for test");
+	}
+
+	auto sockets = getRelatedSockets(log, d, t);
+	sks::socket& sockA = sockets.first;
+	sks::socket& sockB = sockets.second;
+	std::chrono::time_point<std::chrono::system_clock> preTimeoutTime, postTimeoutTime;
+	std::chrono::milliseconds timeMax = timeout + timeoutGrace;
+
+	std::vector<uint8_t> receivedBytes;
+	std::chrono::system_clock::duration timeDiff; //Time it took for receive(...) to return
+
+	//Set timeout
+	sockA.receiveTimeout(timeout);
+	auto timeoutReadBack = std::chrono::duration_cast<std::chrono::milliseconds>(sockA.receiveTimeout());
+	//OS can cause rounding in timeout time. (eg 100ms can become 103.3ms)
+	assertTrue(std::abs((timeoutReadBack - timeout).count()) < std::chrono::duration_cast<std::chrono::milliseconds>(timeoutGrace).count() / 2, "receive timeout was not correctly set");
+
+	//Call receive without data waiting - Timeout expected
+	bool received = false;
+	preTimeoutTime = std::chrono::system_clock::now();
+	try {
+		if (t == sks::stream || t == sks::seq) {
+			receivedBytes = sockA.receive();
+		} else {
+			sks::address addr;
+			receivedBytes = sockA.receive(addr);
+		}
+		received = true;
+	} catch (const std::system_error& e) {
+		assertEqual(e.code(), std::errc::resource_unavailable_try_again, "Timeout did not throw expected error code");
+	}
+	assertFalse(received, "receive() did not time out with no data waiting");
+	postTimeoutTime = std::chrono::system_clock::now();
+	timeDiff = postTimeoutTime - preTimeoutTime;
+	assertTrue(timeout <= timeDiff, "receive() returned prematurely");
+	assertTrue(timeDiff < timeMax, "receive() took longer than timeout to return");
+
+	//Send data so the check below should return true
+	log << "Sending data to socket" << std::endl;
+	if (t == sks::stream || t == sks::seq) {
+		sockB.send({'C', 'h', 'e', 'c', 'k'});
+	} else {
+		sockB.send({'C', 'h', 'e', 'c', 'k'}, sockA.localAddress());
+	}
+
+	//Call receive without data waiting - Should return instantly
+	preTimeoutTime = std::chrono::system_clock::now();
+	if (t == sks::stream || t == sks::seq) {
+		receivedBytes = sockA.receive();
+	} else {
+		sks::address addr;
+		receivedBytes = sockA.receive(addr);
+	}
+	postTimeoutTime = std::chrono::system_clock::now();
+	timeDiff = postTimeoutTime - preTimeoutTime;
+	assertTrue(timeDiff < timeoutGrace, "receive() took longer than grace period to return");
 }
