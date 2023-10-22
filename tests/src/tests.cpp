@@ -212,3 +212,20 @@ void receiveTimesOutCorrectly(std::ostream& log, const sks::domain& d, const sks
 	timeDiff = postTimeoutTime - preTimeoutTime;
 	assertTrue(timeDiff < timeoutGrace, "receive() took longer than grace period to return");
 }
+
+void closedSocketCanBeDetected(std::ostream& log, const sks::domain& d, const sks::type& t) {
+	assertSystemSupports(log, d, t);
+	if (t != sks::stream && t != sks::seq) {
+		assert(btf::ignore, "Test is only for connected types");
+	}
+
+	auto sockets = getRelatedSockets(log, d, t);
+	sks::socket& sockA = sockets.first;
+	//sks::socket& sockB = sockets.second;
+	std::unique_ptr<sks::socket> sockBPtr = std::unique_ptr<sks::socket>(new sks::socket(std::move(sockets.second)));
+	sockBPtr = nullptr; //Causes sockB to be deconstructed
+
+	//Can we, without receiving, detect that sockB is closed?
+	assertTrue(sockA.readReady(), "readReady returned false after peer closed connection");
+	assertEqual(sockA.bytesReady(), 0, "bytesReady returned non-zero for a closed socket that didn't send anything");
+}

@@ -37,12 +37,13 @@ int main(int argc, char** argv) {
 	}
 
 	//Add tests
-	btf::addTestPermutations("Sockets can communicate (%0, %1)",             {"2", "smoke"}, socketsSendAndReceive);
-	btf::addTestPermutations("Addresses cast correctly (%0)",                {"3", "smoke"}, addressesMatchCEquivalents);
-	btf::addTestPermutations("Socket pairs can be created (%0)",             {"4"},          socketPairsCanBeCreated);
-	btf::addTestPermutations("readReady() times-out correctly (%0, %1, %2)", {"5"},          readReadyTimesOutCorrectly);
-	btf::addTestPermutations("bytesReady() returns correct count (%0, %1)",  {"6"},          bytesReadyCorrectCount);
-	btf::addTestPermutations("receive() times out correctly (%0, %1, %2)",   {"7"},          receiveTimesOutCorrectly);
+	btf::addTestPermutations("Sockets can communicate (%0, %1)",                   {"2", "smoke"}, socketsSendAndReceive);
+	btf::addTestPermutations("Addresses cast correctly (%0)",                      {"3", "smoke"}, addressesMatchCEquivalents);
+	btf::addTestPermutations("Socket pairs can be created (%0)",                   {"4"},          socketPairsCanBeCreated);
+	btf::addTestPermutations("readReady() times-out correctly (%0, %1, %2)",       {"5"},          readReadyTimesOutCorrectly);
+	btf::addTestPermutations("bytesReady() returns correct count (%0, %1)",        {"6"},          bytesReadyCorrectCount);
+	btf::addTestPermutations("receive() times out correctly (%0, %1, %2)",         {"7"},          receiveTimesOutCorrectly);
+	btf::addTestPermutations("Closed socket connections can be detected (%0, %1)", {"8"},          closedSocketCanBeDetected);
 
 	//Print info before run starts
 	btf::preRun = [](std::vector<btf::test> testsToRun, size_t threadCount) -> void{
