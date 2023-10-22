@@ -12,10 +12,10 @@ This library brings a modern C++ interface to sockets, simplifies their use, and
 - Send functions block until all data is sent.
 - Operating System agnostic[⁽²⁾](#notes)! (Windows and Linux explicitly maintained)
 - Supports casting/constructing to/from C structures.
-- Has feature parity with C sockets
+- Maintains feature parity with C sockets.
 
 ## Setup
-This is an example of setup and setup options showing how to download, build, and install this library on your system of choice.
+This is an example of setup and setup options showing how to download, build, and install this library on your system of choice. Examples assume you are using Linux.
 
 ### Prerequisites
 This library is built using `cmake` and at least one of [their supported generators](https://cmake.org/cmake/help/latest/manual/cmake-generators.7.html#cmake-generators). CMake can be downloaded via a package manager (i.e. `# apt install cmake` or `# pacman -S cmake`), or directly from [the CMake download page](https://cmake.org/download/).
@@ -35,6 +35,7 @@ This library is built using `cmake` and at least one of [their supported generat
 Additional optional arguments include:
 - `CMAKE_BUILD_TYPE` which can be set to `Release` (default) or `Debug` with `-DCMAKE_BUILD_TYPE=value`.
 - `BUILD_SHARED_LIBS` can be set to `ON` (default) for shared, or `OFF` for static.
+- `BUILD_TESTS` can be set to `ON` to build the tests (requires btf). Defaults to `OFF`
 
 3. Build the generated project (This step varies based on your system and person configuration, below are only examples)
 	#### Linux
