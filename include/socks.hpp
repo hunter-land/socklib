@@ -108,7 +108,6 @@ namespace sks {
 		int socketOption(intOption option, optionLevel level = socketLevel) const;
 
 		//Important utility functions
-		//bool connected();
 		address connectedAddress() const;
 		address localAddress() const;
 

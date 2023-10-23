@@ -310,12 +310,9 @@ namespace sks {
 	#ifdef __AS_POSIX__
 		typedef timeval timeoutT;
 		timeval microsecondsToTimeoutT(std::chrono::microseconds us) {
-			//timeval { time_t tv_sec; suseconds_t tv_usec; };
-			auto seconds = std::chrono::duration_cast<std::chrono::seconds>(us); //Remove microseconds component
-			auto microseconds = us % std::chrono::seconds(1); //Remove seconds component
 			timeval tv;
-			tv.tv_sec = seconds.count();
-			tv.tv_usec = microseconds.count();
+			tv.tv_sec = us.count() / 1000000;
+			tv.tv_usec = us.count() % 1000000;
 			return tv;
 		}
 		std::chrono::microseconds timeoutTToMicroseconds(timeval tv) {
