@@ -5,12 +5,11 @@
 #include "utility.hpp"
 #include <mutex>
 #include <thread>
-#include <future>
 
 void assertSystemSupports(std::ostream& log, sks::domain d, sks::type t) {
 	try {
 		sks::socket(d, t);
-	} catch (std::exception& e) {
+	} catch (const std::exception& e) {
 		assert(btf::ignore, "System does not support " + str(d) + " " + str(t));
 	}
 }
@@ -27,7 +26,10 @@ std::pair<sks::socket, sks::socket> getRelatedSockets(std::ostream& log, sks::do
 		log << "Bound to " << listener.localAddress().name() << std::endl;
 		listener.listen();
 		log << "Listener is listening" << std::endl;
-		auto acceptedFuture = std::async(std::launch::async, &sks::socket::accept, &listener); //Accept the next connection (wait in worker thread)
+		std::unique_ptr<sks::socket> acceptedPtr;
+		std::thread acceptedThread([&]() -> void{
+			acceptedPtr = std::make_unique<sks::socket>(listener.accept()); //Accept the next connection (ran in worker thread)
+		});
 
 		//Switch to client-side
 		sks::socket client(d, t);
@@ -36,7 +38,8 @@ std::pair<sks::socket, sks::socket> getRelatedSockets(std::ostream& log, sks::do
 		log << "Client connected to listener" << std::endl;
 
 		//Switch back to server-side
-		sks::socket accepted = acceptedFuture.get();
+		acceptedThread.join();
+		sks::socket accepted(std::move(*acceptedPtr));
 		return { std::move(client), std::move(accepted) };
 	} else {
 		sks::socket sockA(d, t);

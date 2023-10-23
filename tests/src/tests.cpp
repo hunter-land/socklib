@@ -5,7 +5,6 @@
 #include <mutex>
 #include <memory>
 #include <thread>
-#include <future>
 
 static const std::chrono::milliseconds timeoutGrace(10); //Allow 10ms extra for timeouts (Code isn't instant, and the OS will get to our call when it gets to it)
 
