@@ -15,7 +15,7 @@ add_executable( tests ${SOURCE_FILES} )
 target_include_directories( tests PRIVATE ${INCLUDE_DIR} )
 # Targets for testing
 set(TARGET_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include") # Include directory of target
-find_library(SOCKLIB NAMES socks REQUIRED)
+#find_library(SOCKLIB NAMES socks REQUIRED)
 target_link_libraries(tests PRIVATE socks)
 target_include_directories( tests PRIVATE ${TARGET_INCLUDE_DIR} )
 
