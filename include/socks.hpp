@@ -27,7 +27,15 @@ namespace sks {
 		uint16_t minor;
 		uint16_t build;
 	};
-	extern versionInfo version;
+
+	#ifdef _WIN32 //Classic
+		#ifdef IS_SKS_SOURCE //Define this if ONLY when building the library
+			__declspec(dllexport)
+		#else
+			__declspec(dllimport)
+		#endif
+	#endif
+	const extern versionInfo version;
 
 	enum boolOption {
 		debug = SO_DEBUG,

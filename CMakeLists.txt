@@ -15,6 +15,8 @@ if (NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release) #Build release or debug library
 endif()
 option(BUILD_TESTS "Build tests for library" OFF)
+# Other flags
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 # Set file variables
 set(SOURCE_FILES "${SOURCE_DIR}/socks.cpp" "${SOURCE_DIR}/addrs.cpp" "${SOURCE_DIR}/errors.cpp" "${SOURCE_DIR}/initialization.cpp")
@@ -22,6 +24,7 @@ set(HEADER_FILES "${INCLUDE_DIR}/socks.hpp" "${INCLUDE_DIR}/addrs.hpp" "${INCLUD
 
 # Define library and properties
 add_library(socks ${SOURCE_FILES})
+target_compile_definitions(socks PRIVATE IS_SKS_SOURCE)
 set_target_properties(socks PROPERTIES VERSION ${PROJECT_VERSION})
 set_target_properties(socks PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")
 target_include_directories(socks PRIVATE ${INCLUDE_DIR})

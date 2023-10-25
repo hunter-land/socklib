@@ -32,7 +32,7 @@ extern "C" {
 #include <csignal>
 
 namespace sks {
-	versionInfo version = { 0, 10, 0 };
+	const versionInfo version = { 0, 10, 0 };
 
 	socket::socket(domain d, type t, int protocol) {
 		if (autoInitialize) {
