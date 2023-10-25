@@ -146,6 +146,9 @@ namespace sks {
 		return (sockaddr_storage)*m_addresses.base;
 	}
 	socklen_t address::size() const {
+		if (m_addresses.base == nullptr) {
+			return 0;
+		}
 		return m_addresses.base->size();
 	}
 	address::operator IPv4Address() const {
@@ -175,7 +178,14 @@ namespace sks {
 	}
 	#endif
 	bool address::operator==(const address& r) const {
+
 		if (m_domain == r.m_domain) {
+			//One or both addresses are "blank" (uninitialized)
+			if (m_addresses.base == nullptr || r.m_addresses.base == nullptr) {
+				return m_addresses.base == r.m_addresses.base; //Compare pointers
+			}
+
+			//Normal case
 			switch (m_domain) {
 				case IPv4:
 					return *m_addresses.IPv4 == *r.m_addresses.IPv4;
@@ -187,6 +197,8 @@ namespace sks {
 				case ax25:
 					return *m_addresses.ax25 == *r.m_addresses.ax25;
 				#endif
+				default:
+					throw sysErr(EINVAL); //Unknown domain. Invalid argument(s)
 			}
 		}
 		//Different domains, no match
@@ -198,6 +210,8 @@ namespace sks {
 	bool address::operator<(const address& r) const {
 		if (m_domain != r.m_domain) {
 			return m_domain < r.m_domain;
+		} else if (m_addresses.base == nullptr || r.m_addresses.base == nullptr) {
+			return m_addresses.base < r.m_addresses.base; //Compare pointers
 		}
 		switch (m_domain) {
 			case IPv4:
@@ -210,9 +224,9 @@ namespace sks {
 			case ax25:
 				return *m_addresses.ax25 == *r.m_addresses.ax25;
 			#endif
+			default:
+				throw sysErr(EINVAL); //Unknown domain. Invalid argument(s)
 		}
-		//Unknown domain, error
-		throw std::logic_error("Unknown domain");
 	}
 	domain address::addressDomain() const {
 		return m_domain;
