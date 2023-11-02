@@ -32,7 +32,10 @@ namespace sks {
 		if (libraryUsers == 0) {
 			#ifdef __AS_WINDOWS__
 				//Clean up Winsock
-				WSACleanup();
+				int e = WSACleanup();
+				if (e != 0) {
+					throw sysErr(WSAGetLastError());
+				}
 			#endif
 		}
 	}
