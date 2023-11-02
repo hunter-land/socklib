@@ -101,15 +101,6 @@ namespace sks {
 			//(Potentially) used later, but cannot be got after shutdown and closing
 			#ifdef __AS_POSIX__
 				address local = localAddress();
-			#else
-				address local;
-				try {
-					local = localAddress();
-				} catch (const std::system_error& e) {
-					if ((std::errc)e.code().value() != std::errc::invalid_argument) {
-						throw; //Only the above code is allowed (Due to windows being annoying). All others are failures we don't handle
-					}
-				}
 			#endif
 			//Shutdown socket
 			//This makes sure all remaining bytes are sent to network before closing it up
@@ -151,13 +142,15 @@ namespace sks {
 				//Throwing in a deconstructor is bad for reasons, so don't throw exceptions
 			}
 			
-			if (local.size() != 0 && m_domain == unix) {
-				unixAddress localUnix = (unixAddress)local;
-				if (localUnix.named()) {
-					//We are currently bound to a named unix address, unlink it
-					unlink(localUnix.name().c_str());
+			#ifdef __AS_POSIX__
+				if (m_domain == unix) {
+					unixAddress localUnix = (unixAddress)local;
+					if (localUnix.named()) {
+						//We are currently bound to a named unix address, unlink it
+						unlink(localUnix.name().c_str());
+					}
 				}
-			}
+			#endif
 
 			if (autoInitialize) {
 				deinitialize();
