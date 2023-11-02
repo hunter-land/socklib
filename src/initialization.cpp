@@ -11,6 +11,9 @@ extern "C" {
 }
 
 namespace sks {
+	bool autoInitialize = true;
+	static size_t libraryUsers = 0;
+
 	void initialize() {
 		if (libraryUsers == 0) {
 			#ifdef __AS_WINDOWS__
@@ -32,5 +35,12 @@ namespace sks {
 				WSACleanup();
 			#endif
 		}
+	}
+
+	void incremenetUserCounter() {
+		libraryUsers++;
+	}
+	void decremenetUserCounter() {
+		libraryUsers--;
 	}
 };

@@ -82,7 +82,7 @@ namespace sks {
 		m_domain = d;
 		m_type = t;
 		m_protocol = protocol;
-		libraryUsers++; //Since we have been given an already-existing socket, we don't initialize here, but we do increment since we are now managing the socket
+		incremenetUserCounter(); //Since we have been given an already-existing socket, we don't initialize here, but we do increment since we are now managing the socket
 	}
 	
 	socket::socket(socket&& s) {
@@ -99,7 +99,18 @@ namespace sks {
 		//If we have just done a move operation on this socket, file descriptor should not be touched/read
 		if (m_validFD) {
 			//(Potentially) used later, but cannot be got after shutdown and closing
-			address local = localAddress();
+			#ifdef __AS_POSIX__
+				address local = localAddress();
+			#else
+				address local;
+				try {
+					local = localAddress();
+				} catch (const std::system_error& e) {
+					if ((std::errc)e.code().value() != std::errc::invalid_argument) {
+						throw; //Only the above code is allowed (Due to windows being annoying). All others are failures we don't handle
+					}
+				}
+			#endif
 			//Shutdown socket
 			//This makes sure all remaining bytes are sent to network before closing it up
 			//Long story short, no data is lost unless it is lost while traversing the network
@@ -140,7 +151,7 @@ namespace sks {
 				//Throwing in a deconstructor is bad for reasons, so don't throw exceptions
 			}
 			
-			if (m_domain == unix) {
+			if (local.size() != 0 && m_domain == unix) {
 				unixAddress localUnix = (unixAddress)local;
 				if (localUnix.named()) {
 					//We are currently bound to a named unix address, unlink it

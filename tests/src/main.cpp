@@ -44,6 +44,7 @@ int main(int argc, char** argv) {
 	btf::addTestPermutations("bytesReady() returns correct count (%0, %1)",        {"6"},          bytesReadyCorrectCount);
 	btf::addTestPermutations("receive() times out correctly (%0, %1, %2)",         {"7"},          receiveTimesOutCorrectly);
 	btf::addTestPermutations("Closed socket connections can be detected (%0, %1)", {"8"},          closedSocketCanBeDetected);
+	//TODO: Test for address comparisons, specifically with "uninitialized" addresses
 
 	//Print info before run starts
 	btf::preRun = [](std::vector<btf::test> testsToRun, size_t threadCount) -> void{
