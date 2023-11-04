@@ -1,12 +1,9 @@
 #include "initialization.hpp"
 #include "errors.hpp"
+#include "macros.hpp"
 extern "C" {
-	#ifndef _WIN32 //POSIX, for normal people
-		#define __AS_POSIX__
-	#else //Whatever-this-is, for windows people
+	#ifdef __SKS_AS_WINDOWS__
 		#include <winsock2.h>
-		//#include <ws2tcpip.h> //socklen_t
-		#define __AS_WINDOWS__
 	#endif
 }
 
@@ -16,7 +13,7 @@ namespace sks {
 
 	void initialize() {
 		if (libraryUsers == 0) {
-			#ifdef __AS_WINDOWS__
+			#ifdef __SKS_AS_WINDOWS__
 				// Initialize Winsock
 				WSADATA wsaData;
 				int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData); //Initialize version 2.2
@@ -30,7 +27,7 @@ namespace sks {
 	void deinitialize() {
 		libraryUsers--;
 		if (libraryUsers == 0) {
-			#ifdef __AS_WINDOWS__
+			#ifdef __SKS_AS_WINDOWS__
 				//Clean up Winsock
 				int e = WSACleanup();
 				if (e != 0) {

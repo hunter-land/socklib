@@ -1,16 +1,16 @@
 #include "socks.hpp"
 #include "errors.hpp"
 #include "initialization.hpp"
+#include "macros.hpp"
 extern "C" {
-	#if __has_include(<unistd.h>) & __has_include(<sys/socket.h>) //SHOULD be true if POSIX, false otherwise
+	#ifdef __SKS_AS_POSIX__
 		#include <sys/socket.h> //general socket
 		#include <unistd.h> //close(...) and unlink(...)
 		#include <poll.h> //poll(...)
 		#include <unistd.h> //unlink(...)
 		#include <sys/time.h> //timeval
 		#include <sys/ioctl.h>
-		#define __AS_POSIX__
-	#elif defined _WIN32 //Windows system
+	#elif defined __SKS_AS_WINDOWS__
 		#include <ws2tcpip.h> //WinSock 2
 		//#include <io.h> //_mktemp
 		//#include <fileapi.h> //to get temp dir
@@ -24,7 +24,6 @@ extern "C" {
 		#define POLLOUT POLLWRNORM
 		#define ssize_t int
 		#define errno WSAGetLastError() //Acceptable, but only if reading socket errors, per https://docs.microsoft.com/en-us/windows/win32/winsock/error-codes-errno-h-errno-and-wsagetlasterror-2
-		#define __AS_WINDOWS__
 	#endif
 }
 #include <vector>
@@ -41,9 +40,9 @@ namespace sks {
 
 		m_sockFD = ::socket(d, t, protocol);
 		//On error, -1 is returned, and errno is set appropriately.
-		#ifdef __AS_POSIX__
+		#ifdef __SKS_AS_POSIX__
 			if (m_sockFD == -1) {
-		#elif defined __AS_WINDOWS__
+		#elif defined __SKS_AS_WINDOWS__
 			if (m_sockFD == INVALID_SOCKET) {
 		#endif
 			//Error creating socket; check errno for:
@@ -67,7 +66,7 @@ namespace sks {
 		m_type = t;
 		m_protocol = protocol;
 
-		#ifdef __AS_WINDOWS__
+		#ifdef __SKS_AS_WINDOWS__
 		//Windows doesn't support MSG_NOSIGNAL, but does(?) support SO_NOSIGPIPE option, which achives the same results
 		//Windows also apparently doesn't use the pipe signal???
 		#endif
@@ -82,7 +81,9 @@ namespace sks {
 		m_domain = d;
 		m_type = t;
 		m_protocol = protocol;
-		incremenetUserCounter(); //Since we have been given an already-existing socket, we don't initialize here, but we do increment since we are now managing the socket
+		if (autoInitialize) {
+			initialize();
+		}
 	}
 	
 	socket::socket(socket&& s) {
@@ -99,14 +100,14 @@ namespace sks {
 		//If we have just done a move operation on this socket, file descriptor should not be touched/read
 		if (m_validFD) {
 			//(Potentially) used later, but cannot be got after shutdown and closing
-			#ifdef __AS_POSIX__
+			#ifdef __SKS_AS_POSIX__
 				address local = localAddress();
 			#endif
 			//Shutdown socket
 			//This makes sure all remaining bytes are sent to network before closing it up
 			//Long story short, no data is lost unless it is lost while traversing the network
 			//Also may send protocol info, such as a FIN for TCP
-			#ifdef __AS_POSIX__
+			#ifdef __SKS_AS_POSIX__
 				shutdown(m_sockFD, SHUT_RDWR);
 			#else
 				shutdown(m_sockFD, SD_BOTH);
@@ -124,7 +125,7 @@ namespace sks {
 			//Close socket fully
 			//Any bytes not transmitted are gone
 			//I'm not certain, but I think this isn't a formal/clean close either
-			#ifdef __AS_POSIX__
+			#ifdef __SKS_AS_POSIX__
 				int e = close(m_sockFD);
 			#else
 				int e = closesocket(m_sockFD);
@@ -142,7 +143,7 @@ namespace sks {
 				//Throwing in a deconstructor is bad for reasons, so don't throw exceptions
 			}
 			
-			#ifdef __AS_POSIX__
+			#ifdef __SKS_AS_POSIX__
 				if (m_domain == unix) {
 					unixAddress localUnix = (unixAddress)local;
 					if (localUnix.named()) {
@@ -311,7 +312,7 @@ namespace sks {
 		return r;
 	}
 	
-	#ifdef __AS_POSIX__
+	#ifdef __SKS_AS_POSIX__
 		typedef timeval timeoutT;
 		timeval microsecondsToTimeoutT(std::chrono::microseconds us) {
 			timeval tv;
@@ -377,7 +378,7 @@ namespace sks {
 		pfd.events = POLLOUT;
 		pfd.revents = 0; //Zero it out since we read later and don't want any issues
 		int r = poll(&pfd, 1, timeout.count());
-		#ifdef __AS_POSIX__
+		#ifdef __SKS_AS_POSIX__
 			if (r == -1) {
 		#else
 			if (r == SOCKET_ERROR) {
@@ -394,7 +395,7 @@ namespace sks {
 		pfd.events = POLLIN;
 		pfd.revents = 0; //Zero it out since we read later and don't want any issues
 		int r = poll(&pfd, 1, timeout.count());
-		#ifdef __AS_POSIX__
+		#ifdef __SKS_AS_POSIX__
 			if (r == -1) {
 		#else
 			if (r == SOCKET_ERROR) {
@@ -405,7 +406,7 @@ namespace sks {
 		return (pfd.revents & POLLIN) == POLLIN;
 	}
 	size_t socket::bytesReady() const {
-		#ifdef __AS_POSIX__
+		#ifdef __SKS_AS_POSIX__
 			int bytes;
 			int r = ioctl(m_sockFD, FIONREAD, &bytes);
 			if (r == -1) {
@@ -487,7 +488,7 @@ namespace sks {
 
 	std::pair<socket, socket> createUnixPair(type t, int protocol) {
 		const domain d = unix;
-		#ifdef __AS_POSIX__
+		#ifdef __SKS_AS_POSIX__
 			//Create two sockets with given params
 			int FDs[2];
 			int e = socketpair(d, t, protocol, FDs); //Technically, there could be some system that allows more than just unix sockets, but its unlikely and not particularly hard to DIY

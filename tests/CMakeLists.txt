@@ -11,13 +11,13 @@ set(SOURCE_FILES "${SOURCE_DIR}/main.cpp" "${SOURCE_DIR}/steps.cpp" "${SOURCE_DI
 set(HEADER_FILES "${INCLUDE_DIR}/steps.hpp" "${INCLUDE_DIR}/utility.hpp")
 
 # Application
-add_executable( tests ${SOURCE_FILES} )
-target_include_directories( tests PRIVATE ${INCLUDE_DIR} )
+add_executable(tests ${SOURCE_FILES})
+target_include_directories(tests PRIVATE ${INCLUDE_DIR})
 # Targets for testing
 set(TARGET_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include") # Include directory of target
 #find_library(SOCKLIB NAMES socks REQUIRED)
 target_link_libraries(tests PRIVATE socks)
-target_include_directories( tests PRIVATE ${TARGET_INCLUDE_DIR} )
+target_include_directories(tests PRIVATE ${TARGET_INCLUDE_DIR})
 
 # Threads
 find_package(Threads REQUIRED)

@@ -2,16 +2,16 @@
 #include <array>
 #include <string>
 #include <vector>
+#include "macros.hpp"
 extern "C" {
-	#if __has_include(<unistd.h>) & __has_include(<sys/socket.h>)
+	#ifdef __SKS_AS_POSIX__
 		#include <sys/socket.h>
 		#include <netinet/in.h>
 		#include <sys/un.h>
-		#if __has_include (<netax25/axlib.h>)
+		#ifdef __SKS_HAS_AX25__
 			#include <netax25/ax25.h>
-			//#define has_ax25
 		#endif
-	#elif defined _WIN32
+	#elif defined __SKS_AS_WINDOWS__
 		#include <ws2tcpip.h> //WinSock 2 and socklen_t
 		#define UNIX_PATH_MAX 180
 		typedef struct sockaddr_un {
@@ -33,7 +33,7 @@ namespace sks {
 		unix = AF_UNIX,
 		IPv4 = AF_INET,
 		IPv6 = AF_INET6,
-		#ifdef has_ax25
+		#ifdef __SKS_HAS_AX25__
 		ax25 = AF_AX25, //Maybe one day, when I can test it );
 		#endif
 	};
@@ -49,7 +49,7 @@ namespace sks {
 	class IPv4Address;
 	class IPv6Address;
 	class unixAddress;
-	#ifdef has_ax25
+	#ifdef __SKS_HAS_AX25__
 	class ax25Address;
 	#endif
 
@@ -61,7 +61,7 @@ namespace sks {
 			IPv4Address* IPv4;
 			IPv6Address* IPv6;
 			unixAddress* unix;
-			#ifdef has_ax25
+			#ifdef __SKS_HAS_AX25__
 			ax25Address* ax25;
 			#endif
 			addressBase* base = nullptr;
@@ -101,7 +101,11 @@ namespace sks {
 	protected:
 		addressBase();
 	public:
-		virtual ~addressBase();
+		addressBase(const addressBase& r);
+		addressBase(addressBase&& r);
+		~addressBase();
+
+		addressBase& operator=(const addressBase& r);
 
 		virtual operator sockaddr_storage() const = 0;
 		virtual socklen_t size() const = 0;
@@ -189,7 +193,7 @@ namespace sks {
 	};
 	
 	//Planning for ax25 address, cannot develop/test due to limited support and little documentation
-	#ifdef has_ax25
+	#ifdef __SKS_HAS_AX25__
 	typedef std::array<uint8_t, sizeof(ax25_address)> ax25Call;
 	class ax25Address : public addressBase {
 	protected:

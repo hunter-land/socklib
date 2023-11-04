@@ -1,6 +1,7 @@
 #pragma once
+#include "macros.hpp"
 extern "C" {
-	#ifndef _WIN32 //POSIX, for normal people
+	#ifdef __SKS_AS_POSIX__ //POSIX, for normal people
 		#undef _POSIX_C_SOURCE //Needed here (in header) for SOCK_RDM on MacOS
 		#include <sys/socket.h>
 		#include <netinet/in.h> //for IPV6_V6ONLY option and others
@@ -29,10 +30,12 @@ namespace sks {
 	};
 
 	#ifdef _WIN32 //Classic
-		#ifdef IS_SKS_SOURCE //Define this if ONLY when building the library
-			__declspec(dllexport)
-		#else
-			__declspec(dllimport)
+		#ifndef __MINGW32__ //MinGW is nicer
+			#ifdef IS_SKS_SOURCE //Define this if ONLY when building the library
+				__declspec(dllexport)
+			#else
+				__declspec(dllimport)
+			#endif
 		#endif
 	#endif
 	const extern versionInfo version;

@@ -1,11 +1,12 @@
 #include "errors.hpp"
 #include <system_error>
-#ifdef _WIN32
+#include "macros.hpp"
+#ifdef __SKS_AS_WINDOWS__
 	#include <ws2tcpip.h>
 #endif
 
 namespace sks {
-	#ifdef _WIN32
+	#ifdef __SKS_AS_WINDOWS__
 		//Windows prefixes standard error codes, which causes issues with using std::errc enums defined in the standard
 		std::system_error sysErr(int wsaErrorCode) {
 			if (wsaErrorCode > 10000 && wsaErrorCode <= 10061) {

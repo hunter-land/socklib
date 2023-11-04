@@ -3,28 +3,23 @@
 #include "initialization.hpp"
 #include <cstring>
 #include <regex>
+#include "macros.hpp"
 extern "C" {
-	#if __has_include(<unistd.h>) & __has_include(<sys/socket.h>) //SHOULD be true if POSIX, false otherwise
+	#if defined __SKS_AS_POSIX__ //SHOULD be true if POSIX, false otherwise
 		#include <sys/socket.h>
 		#include <sys/un.h>
 		#include <netdb.h>
 		#include <arpa/inet.h> //inet -> string
 	
-		#if defined __has_include
-			#if __has_include (<netax25/axlib.h>)
-				#include <netax25/ax25.h> //ax25 support and structs
-				#include <netax25/axlib.h> //ax25 manipulations, such as ax25_aton
-			
-				//#define has_ax25
-			#endif
+		#if defined __HAS_AX25__
+			#include <netax25/ax25.h> //ax25 support and structs
+			#include <netax25/axlib.h> //ax25 manipulations, such as ax25_aton
 		#endif
-		#define __AS_POSIX__
-	#elif defined _WIN32
+	#elif defined __SKS_AS_WINDOWS__
 		#include <ws2tcpip.h> //WinSock 2
 		
 		#define sa_family_t ADDRESS_FAMILY
 		#define errno WSAGetLastError() //Acceptable if only reading socket errors, per https://docs.microsoft.com/en-us/windows/win32/winsock/error-codes-errno-h-errno-and-wsagetlasterror-2
-		#define __AS_WINDOWS__
 	#endif
 }
 
@@ -55,7 +50,7 @@ namespace sks {
 					m_addresses.unix = new unixAddress(addr);
 				}
 				break;
-			#ifdef has_ax25
+			#ifdef __SKS_HAS_AX25__
 				case ax25:
 					{
 						ax25Address addr(addrstr);
@@ -79,7 +74,7 @@ namespace sks {
 					m_domain = IPv4;
 					break;
 				} catch (const std::exception& e) {}
-				#ifdef has_ax25
+				#ifdef __SKS_HAS_AX25__
 					//Try to resolve as an ax25
 					try {
 						ax25Address addr(addrstr);
@@ -132,7 +127,7 @@ namespace sks {
 			case unix:
 				m_addresses.unix = new unixAddress(*(sockaddr_un*)&from, len);
 				break;
-			#ifdef has_ax25
+			#ifdef __SKS_HAS_AX25__
 				case ax25:
 					m_addresses.ax25 = new ax25Address(*(full_sockaddr_ax25*)&from, len);
 					break;
@@ -169,7 +164,7 @@ namespace sks {
 		}
 		return *m_addresses.unix;
 	}
-	#ifdef has_ax25
+	#ifdef __SKS_HAS_AX25__
 	address::operator ax25Address() const {
 		if (m_domain != ax25) {
 			throw std::runtime_error("Cannot convert address domain");
@@ -193,7 +188,7 @@ namespace sks {
 					return *m_addresses.IPv6 == *r.m_addresses.IPv6;
 				case unix:
 					return *m_addresses.unix == *r.m_addresses.unix;
-				#ifdef has_ax25
+				#ifdef __SKS_HAS_AX25__
 				case ax25:
 					return *m_addresses.ax25 == *r.m_addresses.ax25;
 				#endif
@@ -220,7 +215,7 @@ namespace sks {
 				return *m_addresses.IPv6 < *r.m_addresses.IPv6;
 			case unix:
 				return *m_addresses.unix < *r.m_addresses.unix;
-			#ifdef has_ax25
+			#ifdef __SKS_HAS_AX25__
 			case ax25:
 				return *m_addresses.ax25 == *r.m_addresses.ax25;
 			#endif
@@ -238,6 +233,16 @@ namespace sks {
 	addressBase::addressBase() {
 		if (autoInitialize) {
 			initialize(); //addresses cause initialization because WSA needs to be running to parse addresses
+		}
+	}
+	addressBase::addressBase(const addressBase& r) {
+		if (autoInitialize) {
+			initialize();
+		}
+	}
+	addressBase::addressBase(addressBase&& r) {
+		if (autoInitialize) {
+			initialize();
 		}
 	}
 	addressBase::~addressBase() {
@@ -591,7 +596,7 @@ namespace sks {
 	}
 
 	//ax25Address (Not officially supported, will be supported after the Deutscher Amateur Radio Club reworks the ax25 implementation with grant funds from the ARDC)
-	#ifdef has_ax25
+	#ifdef __SKS_HAS_AX25__
 	ax25Address::ax25Address(const std::string addrstr) { //Parse address from string
 		full_sockaddr_ax25 addr;
 		socklen_t len = ax25_aton(addrstr.c_str(), &addr); //Populate

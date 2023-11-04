@@ -20,7 +20,7 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 # Set file variables
 set(SOURCE_FILES "${SOURCE_DIR}/socks.cpp" "${SOURCE_DIR}/addrs.cpp" "${SOURCE_DIR}/errors.cpp" "${SOURCE_DIR}/initialization.cpp")
-set(HEADER_FILES "${INCLUDE_DIR}/socks.hpp" "${INCLUDE_DIR}/addrs.hpp" "${INCLUDE_DIR}/errors.hpp" "${INCLUDE_DIR}/initialization.hpp")
+set(HEADER_FILES "${INCLUDE_DIR}/socks.hpp" "${INCLUDE_DIR}/addrs.hpp" "${INCLUDE_DIR}/errors.hpp" "${INCLUDE_DIR}/initialization.hpp" "${INCLUDE_DIR}/macros.hpp")
 
 # Define library and properties
 add_library(socks ${SOURCE_FILES})
