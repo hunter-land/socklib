@@ -39,11 +39,4 @@ namespace sks {
 			#endif
 		}
 	}
-
-	void incremenetUserCounter() {
-		libraryUsers++;
-	}
-	void decremenetUserCounter() {
-		libraryUsers--;
-	}
 };
