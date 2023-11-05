@@ -5,8 +5,10 @@
 #include <mutex>
 #include <memory>
 #include <thread>
+#include <btf/testing.hpp>
 
-static const std::chrono::milliseconds timeoutGrace(10); //Allow 10ms extra for timeouts (Code isn't instant, and the OS will get to our call when it gets to it)
+static const std::chrono::milliseconds timeoutGrace(5); //Allow 1ms extra for timeouts (Code isn't instant, and the OS will get to our call when it gets to it)
+static const std::chrono::milliseconds timeoutError(5); //Allowed +/- to timeouts (Add above for upper-bound)
 
 void socketsSendAndReceive(std::ostream& log, const sks::domain& d, const sks::type& t) {
 	assertSystemSupports(log, d, t);
@@ -82,7 +84,8 @@ void readReadyTimesOutCorrectly(std::ostream& log, const sks::domain& d, const s
 	sks::socket& sockA = sockets.first;
 	sks::socket& sockB = sockets.second;
 	std::chrono::time_point<std::chrono::system_clock> preTimeoutTime, postTimeoutTime;
-	std::chrono::milliseconds timeMax = timeout + timeoutGrace;
+	std::chrono::milliseconds timeMin = timeout - timeoutError;
+	std::chrono::milliseconds timeMax = timeout + timeoutError + timeoutGrace;
 
 	bool rr; //readReady(...) return
 	std::chrono::system_clock::duration timeDiff; //Time it took for readReady(...) to return
@@ -94,8 +97,8 @@ void readReadyTimesOutCorrectly(std::ostream& log, const sks::domain& d, const s
 	postTimeoutTime = std::chrono::system_clock::now();
 	timeDiff = postTimeoutTime - preTimeoutTime;
 	assertFalse(rr, "readReady returned true when there was no data");
-	assertTrue(timeout <= timeDiff, "readReady() returned prematurely");
-	assertTrue(timeDiff < timeMax, "readReady() took longer than timeout to return");
+	assertGreaterThan(timeDiff, timeMin, "readReady() returned prematurely");
+	assertLessThan(timeDiff, timeMax, "readReady() took longer than timeout to return");
 
 	 //Send data so the check below should return true
 	log << "Sending data to socket" << std::endl;
@@ -112,7 +115,7 @@ void readReadyTimesOutCorrectly(std::ostream& log, const sks::domain& d, const s
 	postTimeoutTime = std::chrono::system_clock::now();
 	timeDiff = postTimeoutTime - preTimeoutTime;
 	assertTrue(rr, "readReady returned false when there was data");
-	assertTrue(timeDiff < timeoutGrace, "readReady() took longer than grace period to return");
+	assertLessThan(timeDiff, timeoutGrace, "readReady() took longer than grace period to return");
 }
 
 void bytesReadyCorrectCount(std::ostream& log, const sks::domain& d, const sks::type& t) {
@@ -160,7 +163,8 @@ void receiveTimesOutCorrectly(std::ostream& log, const sks::domain& d, const sks
 	sks::socket& sockA = sockets.first;
 	sks::socket& sockB = sockets.second;
 	std::chrono::time_point<std::chrono::system_clock> preTimeoutTime, postTimeoutTime;
-	std::chrono::milliseconds timeMax = timeout + timeoutGrace;
+	std::chrono::milliseconds timeMin = timeout - timeoutError;
+	std::chrono::milliseconds timeMax = timeout + timeoutError + timeoutGrace;
 
 	std::vector<uint8_t> receivedBytes;
 	std::chrono::system_clock::duration timeDiff; //Time it took for receive(...) to return
@@ -169,7 +173,8 @@ void receiveTimesOutCorrectly(std::ostream& log, const sks::domain& d, const sks
 	sockA.receiveTimeout(timeout);
 	auto timeoutReadBack = std::chrono::duration_cast<std::chrono::milliseconds>(sockA.receiveTimeout());
 	//OS can cause rounding in timeout time. (eg 100ms can become 103.3ms)
-	assertTrue(std::abs((timeoutReadBack - timeout).count()) < std::chrono::duration_cast<std::chrono::milliseconds>(timeoutGrace).count() / 2, "receive timeout was not correctly set");
+	assertLessThanEqual(timeoutReadBack, timeout + timeoutError, "receive timeout was set higher than error allows");
+	assertGreaterThanEqual(timeoutReadBack, timeout - timeoutError, "receive timeout was set lower than error allows");
 
 	//Call receive without data waiting - Timeout expected
 	bool received = false;
@@ -183,13 +188,14 @@ void receiveTimesOutCorrectly(std::ostream& log, const sks::domain& d, const sks
 		}
 		received = true;
 	} catch (const std::system_error& e) {
-		assertEqual(e.code(), std::errc::resource_unavailable_try_again, "Timeout did not throw expected error code");
+		const std::vector<std::errc> allowed = { std::errc::resource_unavailable_try_again, std::errc::timed_out };
+		assertOneOf((std::errc)e.code().value(), allowed, "Timeout did not throw expected error code");
 	}
 	assertFalse(received, "receive() did not time out with no data waiting");
 	postTimeoutTime = std::chrono::system_clock::now();
 	timeDiff = postTimeoutTime - preTimeoutTime;
-	assertTrue(timeout <= timeDiff, "receive() returned prematurely");
-	assertTrue(timeDiff < timeMax, "receive() took longer than timeout to return");
+	assertGreaterThan(timeDiff, timeMin, "receive() returned prematurely");
+	assertLessThan(timeDiff, timeMax, "receive() took longer than timeout to return");
 
 	//Send data so the check below should return true
 	log << "Sending data to socket" << std::endl;
@@ -209,7 +215,7 @@ void receiveTimesOutCorrectly(std::ostream& log, const sks::domain& d, const sks
 	}
 	postTimeoutTime = std::chrono::system_clock::now();
 	timeDiff = postTimeoutTime - preTimeoutTime;
-	assertTrue(timeDiff < timeoutGrace, "receive() took longer than grace period to return");
+	assertLessThan(timeDiff, timeoutGrace, "receive() took longer than grace period to return");
 }
 
 void closedSocketCanBeDetected(std::ostream& log, const sks::domain& d, const sks::type& t) {
@@ -227,4 +233,27 @@ void closedSocketCanBeDetected(std::ostream& log, const sks::domain& d, const sk
 	//Can we, without receiving, detect that sockB is closed?
 	assertTrue(sockA.readReady(), "readReady returned false after peer closed connection");
 	assertEqual(sockA.bytesReady(), 0, "bytesReady returned non-zero for a closed socket that didn't send anything");
+}
+
+void addressComparisonsAreCorrect(std::ostream& log, const sks::domain& d) {
+	//Compare address of domain to 1) others of domain 2) other domains 3) blank
+	//Compare with less-than and equal operators
+
+	sks::address baseAddr = bindableAddress(d, 0);
+	log << "Comparing addresses against " << baseAddr.name() << std::endl;
+
+	for (const sks::address& addr : addresses) {
+		//Should not be equal to this addr (check with `==` and `a < b && b < a`
+		std::string addrStr = addr.size() > 0 ? addr.name() : "Empty Address";
+
+		log << " == " << addrStr << std::endl;
+		assertFalse(baseAddr == addr, "Addresses compared equal (==) when they are different");
+
+		log << " < " << addrStr << std::endl;
+		assertTrue(baseAddr < addr || addr < baseAddr, "Addresses compared equal (<) when they are different");
+	}
+}
+
+void defaultConstructedAddressHasSizeOfZero(std::ostream& log) {
+	assertEqual(sks::address().size(), 0, "Default-constructed address has non-zero size");
 }

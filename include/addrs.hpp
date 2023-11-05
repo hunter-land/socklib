@@ -103,7 +103,7 @@ namespace sks {
 	public:
 		addressBase(const addressBase& r);
 		addressBase(addressBase&& r);
-		~addressBase();
+		virtual ~addressBase();
 
 		addressBase& operator=(const addressBase& r);
 

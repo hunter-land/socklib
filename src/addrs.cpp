@@ -94,7 +94,11 @@ namespace sks {
 		assign((sockaddr_storage)addr, addr.size());
 	}
 	address::address(const address& addr) {
-		assign((sockaddr_storage)addr, addr.size());
+		if (addr.size() > 0) {
+			assign((sockaddr_storage)addr, addr.size());
+		} else {
+			m_domain = addr.m_domain;
+		}
 	}
 	address::address(address&& addr) {
 		m_domain = addr.m_domain;
@@ -105,7 +109,12 @@ namespace sks {
 		delete m_addresses.base;
 	}
 	address& address::operator=(const address& addr) {
-		assign((sockaddr_storage)addr, addr.size());
+		if (addr.size() > 0) {
+			assign((sockaddr_storage)addr, addr.size());
+		} else {
+			m_domain = addr.m_domain;
+			delete m_addresses.base;
+		}
 		return *this;
 	}
 	address& address::operator=(address&& addr) {

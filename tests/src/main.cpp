@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
 			sks::IPv4,
 			sks::IPv6,
 			sks::unix,
-			#ifdef has_ax25
+			#ifdef __SKS_HAS_AX25__
 			sks::ax25,
 			#endif
 		};
@@ -34,6 +34,8 @@ int main(int argc, char** argv) {
 		btf::typeStrings.setFunction<sks::type>(str);
 		btf::typeStrings.setFunction(&sks::address::name);
 		btf::typeStrings.setFunction<std::chrono::milliseconds>(str);
+		btf::typeStrings.setFunction<std::chrono::system_clock::duration>(str);
+		btf::typeStrings.setFunction<std::errc>(str);
 	}
 
 	//Add tests
@@ -44,7 +46,8 @@ int main(int argc, char** argv) {
 	btf::addTestPermutations("bytesReady() returns correct count (%0, %1)",        {"6"},          bytesReadyCorrectCount);
 	btf::addTestPermutations("receive() times out correctly (%0, %1, %2)",         {"7"},          receiveTimesOutCorrectly);
 	btf::addTestPermutations("Closed socket connections can be detected (%0, %1)", {"8"},          closedSocketCanBeDetected);
-	//TODO: Test for address comparisons, specifically with "uninitialized" addresses
+	btf::addTestPermutations("Addresses comparisons are correct (%0)",             {"9"},          addressComparisonsAreCorrect);
+	btf::allTests.push_back({"Default-constructed address has size of zero",       {"10"},         defaultConstructedAddressHasSizeOfZero});
 
 	//Print info before run starts
 	btf::preRun = [](std::vector<btf::test> testsToRun, size_t threadCount) -> void{

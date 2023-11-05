@@ -37,6 +37,14 @@ std::string str(const sks::type& t) {
 std::string str(const std::chrono::milliseconds& ms) {
 	return std::to_string(ms.count()) + "ms";
 }
+std::string str(const std::chrono::system_clock::duration& scd) {
+	return std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(scd).count()) + "ns";
+}
+
+std::string str(const std::errc& ec) {
+	std::system_error se(std::make_error_code(ec));
+	return std::to_string((std::underlying_type<std::errc>::type)ec) + " - " + se.what();
+}
 
 sks::address bindableAddress(sks::domain d, uint8_t index) {
 	switch (d) {
