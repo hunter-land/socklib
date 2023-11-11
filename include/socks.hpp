@@ -89,19 +89,25 @@ namespace sks {
 
 		//Critical setup functions
 		void bind(const address& address);
+		void bind(const sockaddr* address, socklen_t len);
 		void listen(int backlog = 0xFF);
 		socket accept();
 		void connect(const address& address);
+		void connect(const sockaddr* address, socklen_t len);
 
 		//Critical usage functions
 		void send(const std::vector<uint8_t>& data, int flags = 0);
 		void send(const uint8_t* data, size_t len, int flags = 0);
 		void send(const std::vector<uint8_t>& data, const address& to, int flags = 0);
 		void send(const uint8_t* data, size_t len, const address& to, int flags = 0);
+		void send(const std::vector<uint8_t>& data, const sockaddr* toAddr, socklen_t addrLen, int flags = 0);
+		void send(const uint8_t* data, size_t len, const sockaddr* toAddr, socklen_t addrLen, int flags = 0);
 		std::vector<uint8_t> receive(size_t bufSize = 0x10000, int flags = 0);
 		size_t receive(uint8_t* buf, size_t bufSize, int flags = 0);
 		std::vector<uint8_t> receive(address& from, size_t bufSize = 0x10000, int flags = 0);
 		size_t receive(address& from, uint8_t* buf, size_t bufSize, int flags = 0);
+		std::vector<uint8_t> receive(sockaddr* fromAddr, socklen_t* addrLen, size_t bufSize = 0x10000, int flags = 0);
+		size_t receive(sockaddr* fromAddr, socklen_t* addrLen, uint8_t* buf, size_t bufSize, int flags = 0);
 
 		//Critical utility functions
 		void sendTimeout(std::chrono::microseconds timeout);
@@ -120,9 +126,11 @@ namespace sks {
 
 		//Important utility functions
 		address connectedAddress() const;
+		void connectedAddress(sockaddr* addr, socklen_t* len) const;
 		address localAddress() const;
+		void localAddress(sockaddr* addr, socklen_t* len) const;
 
-		//Compatibility functions
+		//"Raw" functions
 		int socketFD(bool takeOwnership = false);
 		int socketFD() const; //Equivalent to socketFD(false)
 	};

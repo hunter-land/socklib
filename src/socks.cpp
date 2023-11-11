@@ -176,13 +176,16 @@ namespace sks {
 	}
 	
 	void socket::bind(const address& address) {
+		sockaddr_storage addr = address;
+		return bind((sockaddr*)&addr, address.size());
+	}
+	void socket::bind(const sockaddr* address, socklen_t len) {
 		//Make sure domain of address matches that of this socket
-		if (address.addressDomain() != m_domain) {
+		if (address->sa_family != m_domain) {
 			throw sysErr(EFAULT); //Bad Address, since domain mis-matched between address and this socket
 		}
 		//Do binding
-		sockaddr_storage addr = address;
-		int e = ::bind(m_sockFD, (sockaddr*)&addr, address.size());
+		int e = ::bind(m_sockFD, address, len);
 		//On error, -1 is returned, and errno is set appropriately.
 		if (e == -1) {
 			//NOTICE: This table (from man bind(2) isn't fully correct, EFAULT can be given if address has mismatching AF with socket)
@@ -242,7 +245,10 @@ namespace sks {
 	
 	void socket::connect(const address& address) {
 		sockaddr_storage addr = address;
-		int e = ::connect(m_sockFD, (sockaddr*)&addr, address.size());
+		return connect((sockaddr*)&addr, address.size());
+	}
+	void socket::connect(const sockaddr* address, socklen_t len) {
+		int e = ::connect(m_sockFD, address, len);
 		//On error, -1 is returned, and errno is set appropriately.
 		if (e == -1) {
 			throw sysErr(errno);
@@ -271,10 +277,16 @@ namespace sks {
 	}
 	void socket::send(const uint8_t* data, size_t len, const address& to, int flags) {
 		sockaddr_storage addr = to;
+		return send(data, len, (sockaddr*)&addr, to.size(), flags);
+	}
+	void socket::send(const std::vector<uint8_t>& data, const sockaddr* toAddr, socklen_t addrLen, int flags) {
+		return send(data.data(), data.size(), toAddr, addrLen, flags);
+	}
+	void socket::send(const uint8_t* data, size_t len, const sockaddr* toAddr, socklen_t addrLen, int flags) {
 		size_t sent = 0;
 		//send may not send all data at once, so we have a loop here
 		while (sent < len) {
-			ssize_t r = ::sendto(m_sockFD, (const char*)data + sent, len - sent, flags | MSG_NOSIGNAL, (sockaddr*)&addr, to.size());
+			ssize_t r = ::sendto(m_sockFD, (const char*)data + sent, len - sent, flags | MSG_NOSIGNAL, toAddr, addrLen);
 			if (r == -1) {
 				throw sysErr(errno);
 			}
@@ -302,13 +314,23 @@ namespace sks {
 		return buffer;
 	}
 	size_t socket::receive(address& from, uint8_t* buf, size_t bufSize, int flags) {
-		sockaddr_storage sa;
-		socklen_t salen = sizeof(sa);
-		ssize_t r = recvfrom(m_sockFD, (char*)buf, bufSize, flags | MSG_NOSIGNAL, (sockaddr*)&sa, &salen);
+		sockaddr_storage addr;
+		socklen_t addrLen = sizeof(addr);
+		size_t recvSize = receive((sockaddr*)&addr, &addrLen, buf, bufSize, flags);
+		from = address(addr, addrLen);
+		return recvSize;
+	}
+	std::vector<uint8_t> socket::receive(sockaddr* fromAddr, socklen_t* addrLen, size_t bufSize, int flags) {
+		std::vector<uint8_t> buffer(bufSize);
+		size_t recvSize = receive(fromAddr, addrLen, buffer.data(), buffer.size(), flags);
+		buffer.resize(recvSize);
+		return buffer;
+	}
+	size_t socket::receive(sockaddr* fromAddr, socklen_t* addrLen, uint8_t* buf, size_t bufSize, int flags) {
+		ssize_t r = recvfrom(m_sockFD, (char*)buf, bufSize, flags | MSG_NOSIGNAL, fromAddr, addrLen);
 		if (r == -1) {
 			throw sysErr(errno);
 		}
-		from = address(sa, salen);
 		return r;
 	}
 	
@@ -458,20 +480,26 @@ namespace sks {
 	address socket::connectedAddress() const {
 		sockaddr_storage sa;
 		socklen_t salen = sizeof(sa);
-		int e = getpeername(m_sockFD, (sockaddr*)&sa, &salen);
+		connectedAddress((sockaddr*)&sa, &salen);
+		return address(sa, salen);
+	}
+	void socket::connectedAddress(sockaddr* addr, socklen_t* len) const {
+		int e = getpeername(m_sockFD, addr, len);
 		if (e == -1) {
 			throw sysErr(errno);
 		}
-		return address(sa, salen);
 	}
 	address socket::localAddress() const {
 		sockaddr_storage sa;
 		socklen_t salen = sizeof(sa);
-		int e = getsockname(m_sockFD, (sockaddr*)&sa, &salen);
+		localAddress((sockaddr*)&sa, &salen);
+		return address(sa, salen);
+	}
+	void socket::localAddress(sockaddr* addr, socklen_t* len) const {
+		int e = getsockname(m_sockFD, addr, len);
 		if (e == -1) {
 			throw sysErr(errno);
 		}
-		return address(sa, salen);
 	}
 
 	int socket::socketFD(bool takeOwnership) {
