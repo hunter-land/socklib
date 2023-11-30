@@ -277,14 +277,14 @@ namespace sks {
 		
 		std::string as = addrstr;
 		std::string scheme = ""; //if any scheme (URL only)
-		if (addrstr.find("://") != std::string::npos) {
-			size_t delimIndex = addrstr.find("://");
+		size_t delimIndex = addrstr.find("://");
+		if (delimIndex != std::string::npos) {
 			as = addrstr.substr(delimIndex + 3);
 			scheme = addrstr.substr(0, delimIndex);
 		}
-		if (as.find(":") != std::string::npos) {
+		size_t colonIndex = as.find(':');
+		if (colonIndex != std::string::npos) {
 			//addr:port format (possibly with scheme)
-			size_t colonIndex = as.find(':');
 			m_port = std::stoul(as.substr(colonIndex + 1));
 			as = as.substr(0, colonIndex);
 		}
@@ -403,13 +403,13 @@ namespace sks {
 		size_t obIndex = addrstr.find('[');
 		size_t cbIndex = addrstr.find("]:");
 		std::string scheme = ""; //if any scheme (URL only)
-		if (addrstr.find("://") != std::string::npos) {
-			size_t delimIndex = addrstr.find("://");
+		size_t delimIndex = addrstr.find("://");
+		if (delimIndex != std::string::npos) {
 			as = addrstr.substr(delimIndex + 3);
 			scheme = addrstr.substr(0, delimIndex);
-			if (as.find(":") != std::string::npos) {
+			size_t colonIndex = as.find(':');
+			if (colonIndex != std::string::npos) {
 				//URL has explict port at the end we should parse
-				size_t colonIndex = as.find(':');
 				m_port = std::stoul(as.substr(colonIndex + 1));
 				as = as.substr(0, colonIndex);
 			}
