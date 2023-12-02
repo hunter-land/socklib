@@ -1,6 +1,6 @@
 # SockLib / SocKetS
 
-![Build Status](https://github.com/hunter-land/socklib/workflows/Build/badge.svg) ![Test Status](https://github.com/hunter-land/socklib/workflows/Test/badge.svg)
+![Build Status](https://github.com/hunter-land/socklib/workflows/Build/badge.svg)
 
 ## About
 This library brings a modern C++ interface to sockets, simplifies their use, and keeps all functionality (feature parity) with C sockets.
